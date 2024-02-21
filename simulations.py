@@ -37,27 +37,16 @@ def projection_matrix(arm_vectors):
 def choosing_algorithm(t,A,k):
     # = lambda t,A,k: A[np.random.randint(low = 0, high= k)]
     return A[t%k]
-def generate_reward(t,theta,A,mean=0,sigma=1,choosing_algorithm = choosing_algorithm):
-    """
 
-    :param t: time in simulation where t<T
-    :param theta: a vector theta star
-    :param A: a matrix of arm vectors of dimension dxk
-    :param mean: the mean of the AWGN noise
-    :param sigma: the variance of the AWGN noise
-    :return: a scalar reward X(t) created by <theta,a(A(t))>+noise
-    """
-    k,d=A.shape
-    return choosing_algorithm(t,A,k).T @ theta + np.random.normal(loc = mean,scale = sigma)
 # Simulate fixed-budget arm pulls
-def simulate_fixed_budget(k=10, d=3, T=100,mean=0,sigma=1,choosing_algorithm = choosing_algorithm):
+def simulate_fixed_budget(k=10, d=3, T=100,mean=0,sigma=0,choosing_algorithm = choosing_algorithm):
     arm_vectors, theta = generate_linear_bandit_instance()
     V = np.zeros((d,d))
     u = np.zeros((d,1))
     for t in range(T):
         r = choosing_algorithm(t, arm_vectors, k).reshape((d, 1))
         V = V + r @ r.T
-        x_t = generate_reward(t,theta,arm_vectors,mean,sigma)
+        x_t = theta.T@ r + np.random.normal(loc=mean,scale=sigma)
         u = u + np.multiply(x_t,r)
     V_inverse = np.linalg.inv(V)
     theta_estimate = V_inverse @ u
