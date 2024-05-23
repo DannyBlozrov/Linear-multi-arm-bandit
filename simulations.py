@@ -1,20 +1,19 @@
-import numpy as np
+import math
 
-def generate_linear_bandit_instance(k=10, d=3,mean =0,sigma = 1):
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import optimize
+
+def generate_linear_bandit_instance(k, d):
     """
 
     :param K: number of samples of a_i..a_k
     :param d: the dimension of each sample
-    :param sigma: the variance of the additive white gaussian noise
-    :return:a vector of arm vectors, theta star, reward vector
+    :return:a matrix of arm vectors of size dxk, theta star of size dx1
     """
-    # Generate random arm vectors
     arm_vectors = np.random.rand(k, d)
-    # Generate random theta star
     theta = np.random.rand(d).reshape(d,1)
-    # noise_vector = np.random.multivariate_normal(mean*np.ones(k),cov=sigma**2*np.eye(k))
-    # reward_vector = arm_vectors @ theta + noise_vector
-    return arm_vectors, theta
+    return arm_vectors.T, theta
 
 
 
@@ -34,24 +33,82 @@ def projection_matrix(arm_vectors):
     return projection_matrix
 
 
-def choosing_algorithm(t,A,k):
-    # = lambda t,A,k: A[np.random.randint(low = 0, high= k)]
+def sequantial_choose(t,A):
+    """
+
+    :param t:  time slot to choose arm at
+    :param A: the set of arms to choose from
+    :return:
+    """
+    d,k = A.shape
     return A[t%k]
 
 # Simulate fixed-budget arm pulls
-def simulate_fixed_budget(k=10, d=3, T=100,mean=0,sigma=0,choosing_algorithm = choosing_algorithm):
-    arm_vectors, theta = generate_linear_bandit_instance()
-    V = np.zeros((d,d))
-    u = np.zeros((d,1))
-    for t in range(T):
-        r = choosing_algorithm(t, arm_vectors, k).reshape((d, 1))
-        V = V + r @ r.T
-        x_t = theta.T@ r + np.random.normal(loc=mean,scale=sigma)
-        u = u + np.multiply(x_t,r)
-    V_inverse = np.linalg.inv(V)
-    theta_estimate = V_inverse @ u
-    print(f"theta = {theta}")
-    print(f"theta estimate  = {theta_estimate}")
+def g_optimal(arm_matrix:np.ndarray,indexes:list):
+    """
+
+    :param arm_matrix: a matrix of current arm vectors
+    :param indexes: indices of
+    :return: a vector of probabilities (0,1) for each arm , using some optimization program
+    """
+    epsilon  = 1e-5
+    d,k = np.shape(arm_matrix)
+    print(f"k={k},d={d}")
+    num_vecs = len(indexes)
+    print(f"arm matrix dims = {arm_matrix.shape}")
+    print(f"indexes = {indexes}")
+    #print(f"arm matrix = {arm_matrix}")
+    V = lambda pi : sum(np.asarray([pi[i]*(arm_matrix[:,i].reshape((d,1))@(arm_matrix[:,i].reshape((d,1)).T))]) for i in indexes)
+    pi_0 = (1 / num_vecs) * np.ones((num_vecs))
+    print(f"V(pi_0) ={V(pi_0).reshape((d,d))}")
+    print(f"Vpi dims = {V(pi_0).reshape((d,d)).shape}")
+    g = lambda pi : np.max([(arm_matrix[:,i].reshape((d,1))).T@(np.linalg.inv(V(pi)).reshape((d,d)))@(arm_matrix[:,i].reshape((d,1))) for i in indexes])
+    constraints = lambda v : np.sum(v) - 1
+    constraints_dict = {'type':'eq','fun':constraints}
+    pi_0 = (1/num_vecs) * np.ones((num_vecs))
+    res = optimize.minimize(fun=g,bounds=[(0,1) for i in indexes],constraints = constraints_dict,x0 = pi_0)
+    val = res['fun']
+    pi = res['x']
+    return pi
+
+def simulate_fixed_budget(k=5, d=4, T=400,mean=0,sigma = 1, num_trials = 10):
+    """
+
+    :param k:  number of samples(arms)
+    :param d: the dimension of each arm
+    :param T: the budget for the simulation
+    :param mean: the mean of the AWGN
+    :param sigma: the standard deviation of the AWGN
+    :param num_trials : number of trials to average the error
+    :return:the optimal arm from the list of arms generated
+    """
+    arm_vectors, theta = generate_linear_bandit_instance(k,d)
+    curr_arms = arm_vectors
+    curr_indexes = list(range(k))
+    logd = math.ceil(math.log2(d))
+    print(f"logd={logd}")
+    curr_dim = d
+    new_dim = d
+    m = (T - np.min([k , (d*(d+1)/2)]) -sum([d/(2**r) for r in range(1,logd)]))/logd
+
+
+    for r in range(1,logd):
+        print(curr_arms.shape)
+        new_dim = np.linalg.matrix_rank(curr_arms)
+        print(new_dim)
+        if (new_dim != curr_dim):
+            pass
+
+        if r == 1:
+            pi = g_optimal(curr_arms,curr_indexes)
+            print(pi) # vector of probabilities
+        elif r != 1:
+            pi = g_optimal(curr_arms,curr_indexes)
+            print(pi)
+
+
+
+
 
 
 
@@ -60,5 +117,6 @@ def simulate_fixed_budget(k=10, d=3, T=100,mean=0,sigma=0,choosing_algorithm = c
 
 if __name__ == "__main__":
     simulate_fixed_budget()
+
 
 
