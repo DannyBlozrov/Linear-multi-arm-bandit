@@ -43,7 +43,11 @@ def sequantial_choose(t,A):
     d,k = A.shape
     return A[t%k]
 
-# Simulate fixed-budget arm pulls
+def get_reward(theta,arm):
+    #loc is the mean, scale is the variance
+    awgn = np.random.normal(loc = 0, scale = 1, size = 1)
+    return theta@arm + awgn
+
 def g_optimal(arm_matrix:np.ndarray,indexes:list):
     """
 
@@ -51,27 +55,33 @@ def g_optimal(arm_matrix:np.ndarray,indexes:list):
     :param indexes: indices of
     :return: a vector of probabilities (0,1) for each arm , using some optimization program
     """
-    epsilon  = 1e-5
     d,k = np.shape(arm_matrix)
     print(f"k={k},d={d}")
     num_vecs = len(indexes)
     print(f"arm matrix dims = {arm_matrix.shape}")
     print(f"indexes = {indexes}")
     #print(f"arm matrix = {arm_matrix}")
-    V = lambda pi : sum(np.asarray([pi[i]*(arm_matrix[:,i].reshape((d,1))@(arm_matrix[:,i].reshape((d,1)).T))]) for i in indexes)
-    pi_0 = (1 / num_vecs) * np.ones((num_vecs))
-    print(f"V(pi_0) ={V(pi_0).reshape((d,d))}")
-    print(f"Vpi dims = {V(pi_0).reshape((d,d)).shape}")
-    g = lambda pi : np.max([(arm_matrix[:,i].reshape((d,1))).T@(np.linalg.inv(V(pi)).reshape((d,d)))@(arm_matrix[:,i].reshape((d,1))) for i in indexes])
-    constraints = lambda v : np.sum(v) - 1
+    V = lambda pi : sum(np.asarray([pi[i]*(arm_matrix[:,i].reshape((d,1))@(arm_matrix[:,i].reshape((d,1)).T))]) for i in indexes) #finding the matrix V for a distribution
+    pi_0 = (1 / num_vecs) * np.ones((num_vecs)) #initial guess to find pi
+    def g(pi):
+        """
+        :param pi: a probability distribution
+        :return: the best arm in given distribution using a_i^T V(pi)^-1 a as the mahalobanius norm
+        """
+        V_pi:np.ndarray = V(pi)
+        print(f"V_pi = {V_pi}")
+        return np.max([(arm_matrix[:,i].reshape((d,1))).T@np.linalg.inv(V_pi).reshape((d,d))@(arm_matrix[:,i].reshape((d,1))) for i in indexes])
+
+    constraints = lambda v : np.sum(v) - 1 #sum of probabilities must equal 1
     constraints_dict = {'type':'eq','fun':constraints}
     pi_0 = (1/num_vecs) * np.ones((num_vecs))
     res = optimize.minimize(fun=g,bounds=[(0,1) for i in indexes],constraints = constraints_dict,x0 = pi_0)
     val = res['fun']
     pi = res['x']
-    return pi
+    solver = res['status']
+    return pi,solver
 
-def simulate_fixed_budget(k=5, d=4, T=400,mean=0,sigma = 1, num_trials = 10):
+def simulate_fixed_budget(k=5, d=4, T=400,mean=0,sigma = 1, num_trials = 1):
     """
 
     :param k:  number of samples(arms)
@@ -82,7 +92,7 @@ def simulate_fixed_budget(k=5, d=4, T=400,mean=0,sigma = 1, num_trials = 10):
     :param num_trials : number of trials to average the error
     :return:the optimal arm from the list of arms generated
     """
-    arm_vectors, theta = generate_linear_bandit_instance(k,d)
+    arm_vectors, theta_star = generate_linear_bandit_instance(k,d)
     curr_arms = arm_vectors
     curr_indexes = list(range(k))
     logd = math.ceil(math.log2(d))
@@ -91,20 +101,25 @@ def simulate_fixed_budget(k=5, d=4, T=400,mean=0,sigma = 1, num_trials = 10):
     new_dim = d
     m = (T - np.min([k , (d*(d+1)/2)]) -sum([d/(2**r) for r in range(1,logd)]))/logd
 
-
     for r in range(1,logd):
         print(curr_arms.shape)
         new_dim = np.linalg.matrix_rank(curr_arms)
-        print(new_dim)
+        print(f"new dim ={new_dim}")
         if (new_dim != curr_dim):
             pass
+            #need to find a matrix B whose columns form a orthonormal basis of the subspace
+            #spanned by {ar−1(i) : i ∈ Ar−1}.
 
         if r == 1:
-            pi = g_optimal(curr_arms,curr_indexes)
-            print(pi) # vector of probabilities
+            pi,solver = g_optimal(curr_arms,curr_indexes)
+            print(f"PI = {pi},solver={solver},r={r}") # vector of probabilities
         elif r != 1:
-            pi = g_optimal(curr_arms,curr_indexes)
-            print(pi)
+            pi,solver = g_optimal(curr_arms,curr_indexes)
+            print(f"PI = {pi},solver={solver},r={r}")
+        T_rs = np.asarray([np.ceil(pi[i]*m for i in range(len(pi)))])
+        Tr = np.sum(T_rs)
+
+
 
 
 
