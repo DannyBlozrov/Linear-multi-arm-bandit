@@ -1,5 +1,4 @@
 import math
-
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import optimize
@@ -117,7 +116,7 @@ def g_optimal(arm_matrix: np.ndarray, indexes: list):
     return pi, solver
 
 
-def simulate_fixed_budget(k=50, d=3, T=400, mean=0, sigma=1, num_trials=1):
+def simulate_fixed_budget(k=50, d=6, T=400, mean=0, sigma=1, num_trials=1):
     """
 
     :param k:  number of samples(arms)
@@ -193,7 +192,11 @@ def simulate_fixed_budget(k=50, d=3, T=400, mean=0, sigma=1, num_trials=1):
         for idx in curr_indexes:
             expected_rewards[idx] = Theta_r.T@curr_arms[:,idx].reshape((curr_dim,1))  # saved all the expected rewards
         sorted_indexes = np.argsort(-expected_rewards)  # Sort in descending order
-        new_indexes = sorted_indexes[:len(curr_indexes) // 2]  # Select the top half with highest rewards
+        # new_indexes = sorted_indexes[:len(curr_indexes) // 2]  # Select the top half with highest rewards
+        if r == 1:
+            new_indexes = sorted_indexes[:d]  # Select the top d/2 with highest rewards in the first iteration
+        else:
+            new_indexes = sorted_indexes[:len(curr_indexes) // 2]  # Select the top half with highest rewards from second iteration
         plot_data.append({"r":r,"indexes":new_indexes,"rewards":expected_rewards})
         curr_indexes = new_indexes
     return plot_data,original_theta_star,original_arm_vectors
