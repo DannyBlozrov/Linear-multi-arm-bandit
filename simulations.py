@@ -2,6 +2,7 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import optimize
+import random
 
 
 def generate_linear_bandit_instance(k, d):
@@ -53,6 +54,7 @@ def get_real_reward(theta, arm):
     arm = arm.reshape(-1, 1)  # d x 1
     # Perform the matrix multiplication
     return (theta.T @ arm).item()  # Result is a scalar
+
 
 
 def best_reward_vec(arms, theta):
@@ -147,6 +149,7 @@ def simulate_fixed_budget(k=200, d=5, T=400, mean=0, sigma=1, num_trials=1):
     new_dim = d
     m = (T - np.min([k, (d * (d + 1) / 2)]) - sum([d / (2 ** r) for r in range(1, logd)])) / logd
     real_best_reward = best_reward_vec(original_arm_vectors, original_theta_star)
+    unused_indexes = []
 
     for r in range(1, 100):
         if len(curr_indexes) == 1:
@@ -173,14 +176,23 @@ def simulate_fixed_budget(k=200, d=5, T=400, mean=0, sigma=1, num_trials=1):
         newsum = np.zeros((curr_dim, 1))
         for idx in curr_indexes:
             for j in range(int(T_r_array[idx])):
+
                 X_t = get_reward(original_theta_star, original_arm_vectors[:, idx])
                 newsum += curr_arms[:, idx].reshape((curr_dim, 1)) * X_t
 
         Theta_r = np.linalg.inv(V_r) @ newsum  # this is Theta_r as in phase 19
         expected_rewards = np.zeros(k)
+        summed_rewards = np.zeros(k)
 
-        for idx in curr_indexes:
-            expected_rewards[idx] = Theta_r.T @ curr_arms[:, idx].reshape((curr_dim, 1))
+        if r ==1:
+            for idx in curr_indexes:
+                expected_rewards[idx] = Theta_r.T @ curr_arms[:, idx].reshape((curr_dim, 1))
+        else:
+            for idx in curr_indexes:
+                random_vec = random.choice(unused_indexes)
+                summed_rewards[idx] = Theta_r.T @ (curr_arms[:, idx].reshape(curr_dim, 1)+curr_arms[:, random_vec].reshape(curr_dim, 1))
+                rand_reward = Theta_r.T @ curr_arms[:, random_vec].reshape(curr_dim, 1)
+                expected_rewards[idx] = summed_rewards[idx]-rand_reward
 
         sorted_indexes = np.argsort(-expected_rewards)  # Sort in descending order
 
@@ -188,6 +200,7 @@ def simulate_fixed_budget(k=200, d=5, T=400, mean=0, sigma=1, num_trials=1):
             new_indexes = sorted_indexes[:d]  # Select the top d/2 with highest rewards in the first iteration
         else:
             new_indexes = sorted_indexes[:len(curr_indexes) // 2]  # Select the top half with highest rewards from second iteration
+        unused_indexes = [index for index in sorted_indexes if index not in new_indexes]
 
         plot_data.append({"r": r, "indexes": new_indexes, "rewards": expected_rewards})
         curr_indexes = new_indexes
