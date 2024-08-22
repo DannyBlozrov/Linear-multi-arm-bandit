@@ -11,7 +11,7 @@ def generate_linear_bandit_instance(k, d):
     :param d: the dimension of each sample
     :return:a matrix of arm vectors of size dxk, theta star of size dx1
     """
-    arm_vectors = np.random.rand(k, d)
+    arm_vectors = 15*np.random.rand(k, d)
     theta = np.random.rand(d).reshape(d, 1)
     return arm_vectors.T, theta
 
@@ -59,13 +59,15 @@ def get_real_reward(theta, arm):
 
 def best_reward_vec(arms, theta):
     max_reward = -np.inf
-    best_arm_vector = None
-    for arm in arms.T:  # Iterate over the transposed arms to get each arm as a column vector
+    best_arm_index = None
+    
+    for i, arm in enumerate(arms.T):  # Iterate over the transposed arms to get each arm as a column vector
         reward = get_real_reward(theta, arm)
         if reward > max_reward:
             max_reward = reward
-            best_arm_vector = arm
-    return best_arm_vector
+            best_arm_index = i
+    
+    return best_arm_index
 
 
 def g_optimal(arm_matrix: np.ndarray, indexes: list):
@@ -127,7 +129,7 @@ def g_optimal(arm_matrix: np.ndarray, indexes: list):
     return pi, solver
 
 
-def simulate_fixed_budget(k=200, d=5, T=400, mean=0, sigma=0.5, num_trials=1):
+def simulate_fixed_budget(k=200, d=5, T=400, mean=0, sigma=1, num_trials=1):
     """
     :param k:  number of samples(arms)
     :param d: the dimension of each arm
@@ -150,6 +152,7 @@ def simulate_fixed_budget(k=200, d=5, T=400, mean=0, sigma=0.5, num_trials=1):
     new_dim = d
     m = (T - np.min([k, (d * (d + 1) / 2)]) - sum([d / (2 ** r) for r in range(1, logd)])) / logd
     real_best_reward = best_reward_vec(original_arm_vectors, original_theta_star)
+    print(f"real winner is : {real_best_reward}")
     unused_indexes = []
 
     for r in range(1, 100):
@@ -173,18 +176,13 @@ def simulate_fixed_budget(k=200, d=5, T=400, mean=0, sigma=0.5, num_trials=1):
         # Add regularization term to V_r
         regularization_term = 1e-5 * np.eye(curr_d)
         V_r += regularization_term
-        tuples_list = []
+
         newsum = np.zeros((curr_dim, 1))
         for idx in curr_indexes:
-            if r==1: #first stage is only the arms
-                tmp_vec = curr_arms[:, idx].reshape((curr_d, 1))
-            else:   #all the rest is linear comb. of 2 arms
-                random_vec = random.choice(unused_indexes) #gte randoom before theta calc
-                tuples_list.append((idx, random_vec))
-                tmp_vec = curr_arms[:, idx].reshape((curr_d, 1))+curr_arms[:, random_vec].reshape((curr_d, 1))
             for j in range(int(T_r_array[idx])):
-                X_t = get_reward(original_theta_star, tmp_vec)
-                newsum += tmp_vec * X_t
+
+                X_t = get_reward(original_theta_star, original_arm_vectors[:, idx])
+                newsum += curr_arms[:, idx].reshape((curr_dim, 1)) * X_t
 
         Theta_r = np.linalg.inv(V_r) @ newsum  # this is Theta_r as in phase 19
         expected_rewards = np.zeros(k)
@@ -195,13 +193,13 @@ def simulate_fixed_budget(k=200, d=5, T=400, mean=0, sigma=0.5, num_trials=1):
                 expected_rewards[idx] = Theta_r.T @ curr_arms[:, idx].reshape((curr_dim, 1))
                 histogram[idx]+=1
         else:
-            for tuple in tuples_list:
-                (vec,randvec) = tuple
-                histogram[vec]+=1
-                histogram[randvec]+=1
-                summed_rewards[vec] = Theta_r.T @ (curr_arms[:, vec].reshape(curr_dim, 1)+curr_arms[:, randvec].reshape(curr_dim, 1))
-                rand_reward = Theta_r.T @ curr_arms[:, randvec].reshape(curr_dim, 1)
-                expected_rewards[vec] = summed_rewards[vec]-rand_reward
+            for idx in curr_indexes:
+                random_vec = random.choice(unused_indexes)
+                histogram[random_vec]+=1
+                histogram[idx]+=1
+                summed_rewards[idx] = Theta_r.T @ (curr_arms[:, idx].reshape(curr_dim, 1)+curr_arms[:, random_vec].reshape(curr_dim, 1))
+                rand_reward = Theta_r.T @ curr_arms[:, random_vec].reshape(curr_dim, 1)
+                expected_rewards[idx] = summed_rewards[idx]-rand_reward
 
         sorted_indexes = np.argsort(-expected_rewards)  # Sort in descending order
 
