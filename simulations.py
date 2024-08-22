@@ -138,6 +138,7 @@ def simulate_fixed_budget(k=200, d=5, T=400, mean=0, sigma=1, num_trials=1):
     :return:the optimal arm from the list of arms generated
     """
     plot_data = []
+    histogram = np.zeros(k)
     original_arm_vectors, original_theta_star = generate_linear_bandit_instance(k, d)
     real_best_rewards = np.asarray([original_theta_star.T @ original_arm_vectors[:, i] for i in range(k)]).reshape((1, k))
     plot_data.append({"r": 0, "rewards": real_best_rewards, "indexes": list(range(k))})
@@ -187,9 +188,12 @@ def simulate_fixed_budget(k=200, d=5, T=400, mean=0, sigma=1, num_trials=1):
         if r ==1:
             for idx in curr_indexes:
                 expected_rewards[idx] = Theta_r.T @ curr_arms[:, idx].reshape((curr_dim, 1))
+                histogram[idx]+=1
         else:
             for idx in curr_indexes:
                 random_vec = random.choice(unused_indexes)
+                histogram[random_vec]+=1
+                histogram[idx]+=1
                 summed_rewards[idx] = Theta_r.T @ (curr_arms[:, idx].reshape(curr_dim, 1)+curr_arms[:, random_vec].reshape(curr_dim, 1))
                 rand_reward = Theta_r.T @ curr_arms[:, random_vec].reshape(curr_dim, 1)
                 expected_rewards[idx] = summed_rewards[idx]-rand_reward
@@ -201,14 +205,15 @@ def simulate_fixed_budget(k=200, d=5, T=400, mean=0, sigma=1, num_trials=1):
         else:
             new_indexes = sorted_indexes[:len(curr_indexes) // 2]  # Select the top half with highest rewards from second iteration
         unused_indexes = [index for index in sorted_indexes if index not in new_indexes]
+        #update histogram for trudy's freq_check
 
         plot_data.append({"r": r, "indexes": new_indexes, "rewards": expected_rewards})
         curr_indexes = new_indexes
 
-    return plot_data, original_theta_star, original_arm_vectors
+    return plot_data, original_theta_star, original_arm_vectors, histogram
 
 
-def make_plots(plot_data: list):
+def make_plots(plot_data: list,histogram: list):
     """
     :param plot_data: a list of r stages, each element is a dict with keys "r"(round),"indexes"(current indexes),"rewards" which are the expected rewards
     :return: make a matplotlib from each stage, where x values will be indexes,y values will be expected rewards, at stage 0 those are the real rewards with no noise
@@ -230,7 +235,15 @@ def make_plots(plot_data: list):
         plt.ylabel('Expected Reward')
         plt.title(f'Round {round_number}')
         plt.show()
+    
+    # Plot trudy's freq check
+    plt.figure()
+    plt.bar(range(len(histogram)),histogram)
+    plt.xlabel('Arm Index')
+    plt.ylabel('occurences')
+    plt.title(f'Trudys histogram {round_number}')
+    plt.show()
 
 
-plot_data, original_theta_star, original_arm_vectors = simulate_fixed_budget(num_trials=1)
-make_plots(plot_data)
+plot_data, original_theta_star, original_arm_vectors,histogram = simulate_fixed_budget(num_trials=1)
+make_plots(plot_data,histogram)
