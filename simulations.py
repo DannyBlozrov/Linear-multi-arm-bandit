@@ -16,29 +16,6 @@ def generate_linear_bandit_instance(k, d):
     return arm_vectors.T, theta
 
 
-# Function to perform dimensionality reduction
-def projection_matrix(arm_vectors):
-    """
-    :param arm_vectors: a matrix of K vectors in dimension d'
-    :return: an orthogonal spanning base matrix B with d rows and d' columns such that A'=B^T @ A
-    """
-    k, d = arm_vectors.shape
-    Q, R = np.linalg.qr(arm_vectors.T)
-    # Q is an orthogonal matrix
-    # R is an upper triangular matrix
-    nonzero_indices = np.where(~np.all(R == 0, axis=1))[0]
-    projection_matrix = arm_vectors[nonzero_indices]  # this is B^T before normalization
-    return projection_matrix
-
-
-def sequantial_choose(t, A):
-    """
-    :param t:  time slot to choose arm at
-    :param A: the set of arms to choose from
-    :return:
-    """
-    d, k = A.shape
-    return A[t % k]
 
 
 def get_reward(theta, arm):
@@ -70,6 +47,26 @@ def best_reward_vec(arms, theta):
     return best_arm_index
 
 
+def g(pi,arm_matrix,indexes,d):
+    """
+    :param pi: a probability distribution
+    :return: the best arm in given distribution using a_i^T V(pi)^-1 a as the mahalobanius norm
+    """
+    V_pi = np.zeros((d, d))
+    for i in indexes:
+        V_pi += np.asarray(pi[i] * (arm_matrix[:, i].reshape((d, 1)) @ (arm_matrix[:, i].reshape((d, 1)).T)))
+
+    # Check if V_pi is singular or nearly singular
+    try:
+        np.linalg.inv(V_pi)
+        # If no exception, the matrix is not singular
+        return np.max([(arm_matrix[:, i].reshape((d, 1))).T @ np.linalg.inv(V_pi).reshape((d, d)) @ (arm_matrix[:, i].reshape((d, 1))) for i in indexes])
+    except np.linalg.LinAlgError:
+        # Matrix is singular; apply regularization
+        regularization_term = 1e-5 * np.eye(d)
+        V_pi += regularization_term
+        return np.max([(arm_matrix[:, i].reshape((d, 1))).T @ np.linalg.inv(V_pi).reshape((d, d)) @ (arm_matrix[:, i].reshape((d, 1))) for i in indexes])
+
 def g_optimal(arm_matrix: np.ndarray, indexes: list):
     """
     :param arm_matrix: a matrix of current arm vectors
@@ -81,55 +78,20 @@ def g_optimal(arm_matrix: np.ndarray, indexes: list):
     num_vecs = len(indexes)
     print(f"arm matrix dims = {arm_matrix.shape}")
     print(f"indexes = {indexes}")
-
-    def V(pi):
-        res = np.zeros((d, d))
-        for i in indexes:
-            res += np.asarray(pi[i] * (arm_matrix[:, i].reshape((d, 1)) @ (arm_matrix[:, i].reshape((d, 1)).T)))
-        return res
-
     pi_0 = (1 / num_vecs) * np.ones((num_vecs))  # initial guess to find pi
-
-    # def g(pi):
-    #     """
-    #     :param pi: a probability distribution
-    #     :return: the best arm in given distribution using a_i^T V(pi)^-1 a as the mahalobanius norm
-    #     """
-    #     V_pi = V(pi)
-    #     regularization_term = 1e-5 * np.eye(d)  # Regularization term
-    #     V_pi += regularization_term
-    #     return np.max([(arm_matrix[:, i].reshape((d, 1))).T @ np.linalg.inv(V_pi).reshape((d, d)) @ (arm_matrix[:, i].reshape((d, 1))) for i in indexes])
-
-    def g(pi):
-        """
-        :param pi: a probability distribution
-        :return: the best arm in given distribution using a_i^T V(pi)^-1 a as the mahalobanius norm
-        """
-        V_pi = V(pi)
-    
-        # Check if V_pi is singular or nearly singular
-        try:
-            np.linalg.inv(V_pi)
-            # If no exception, the matrix is not singular
-            return np.max([(arm_matrix[:, i].reshape((d, 1))).T @ np.linalg.inv(V_pi).reshape((d, d)) @ (arm_matrix[:, i].reshape((d, 1))) for i in indexes])
-        except np.linalg.LinAlgError:
-            # Matrix is singular; apply regularization
-            regularization_term = 1e-5 * np.eye(d)
-            V_pi += regularization_term
-            return np.max([(arm_matrix[:, i].reshape((d, 1))).T @ np.linalg.inv(V_pi).reshape((d, d)) @ (arm_matrix[:, i].reshape((d, 1))) for i in indexes])
-
     constraints = lambda v: np.sum(v) - 1  # sum of probabilities must equal 1
     constraints_dict = {'type': 'eq', 'fun': constraints}
     pi_0 = (1 / num_vecs) * np.ones((k))
     bounds = [(0, 1) if i in indexes else (0, 0) for i in range(k)]
-    res = optimize.minimize(fun=g, bounds=bounds, constraints=constraints_dict, x0=pi_0)
+    f = lambda pi: g(pi,arm_matrix,indexes,d)
+    res = optimize.minimize(fun=f, bounds=bounds, constraints=constraints_dict, x0=pi_0)
     val = res['fun']
     pi = res['x']
     solver = res['message']
     return pi, solver
 
 
-def simulate_fixed_budget(k=200, d=5, T=400, mean=0, sigma=1, num_trials=1):
+def simulate_fixed_budget(k=50, d=5, T=400, mean=0, sigma=0.5, num_trials=1):
     """
     :param k:  number of samples(arms)
     :param d: the dimension of each arm
@@ -177,14 +139,15 @@ def simulate_fixed_budget(k=200, d=5, T=400, mean=0, sigma=1, num_trials=1):
         regularization_term = 1e-5 * np.eye(curr_d)
         V_r += regularization_term
 
+        #
         newsum = np.zeros((curr_dim, 1))
         for idx in curr_indexes:
             for j in range(int(T_r_array[idx])):
-
                 X_t = get_reward(original_theta_star, original_arm_vectors[:, idx])
                 newsum += curr_arms[:, idx].reshape((curr_dim, 1)) * X_t
 
         Theta_r = np.linalg.inv(V_r) @ newsum  # this is Theta_r as in phase 19
+        print(f"theta diff : {np.linalg.norm(original_theta_star-Theta_r)}")
         expected_rewards = np.zeros(k)
         summed_rewards = np.zeros(k)
 
@@ -192,14 +155,14 @@ def simulate_fixed_budget(k=200, d=5, T=400, mean=0, sigma=1, num_trials=1):
             for idx in curr_indexes:
                 expected_rewards[idx] = Theta_r.T @ curr_arms[:, idx].reshape((curr_dim, 1))
                 histogram[idx]+=1
+            first_round_rewards = expected_rewards
         else:
             for idx in curr_indexes:
                 random_vec = random.choice(unused_indexes)
                 histogram[random_vec]+=1
                 histogram[idx]+=1
                 summed_rewards[idx] = Theta_r.T @ (curr_arms[:, idx].reshape(curr_dim, 1)+curr_arms[:, random_vec].reshape(curr_dim, 1))
-                rand_reward = Theta_r.T @ curr_arms[:, random_vec].reshape(curr_dim, 1)
-                expected_rewards[idx] = summed_rewards[idx]-rand_reward
+                expected_rewards[idx] = summed_rewards[idx]-first_round_rewards[random_vec]
 
         sorted_indexes = np.argsort(-expected_rewards)  # Sort in descending order
 
