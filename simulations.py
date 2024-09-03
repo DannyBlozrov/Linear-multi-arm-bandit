@@ -116,6 +116,7 @@ def simulate_fixed_budget(k=50, d=5, T=400, mean=0, sigma=0.5, num_trials=1):
     real_best_reward = best_reward_vec(original_arm_vectors, original_theta_star)
     print(f"real winner is : {real_best_reward}")
     unused_indexes = []
+    sent_vec_ind = []
 
     for r in range(1, 100):
         if len(curr_indexes) == 1:
@@ -123,48 +124,65 @@ def simulate_fixed_budget(k=50, d=5, T=400, mean=0, sigma=0.5, num_trials=1):
             print(f"winner index ={curr_indexes[0]}")
             break
 
+        curr_rewards = []
         pi, solver = g_optimal(curr_arms, curr_indexes)
         T_r_array = np.zeros((k))
+        #calc T_r
         for i in curr_indexes:
             T_r_array[i] = np.ceil(pi[i] * m)
         Tr = np.sum(T_r_array)
         curr_d = curr_arms.shape[0]
         V_r = np.zeros((curr_d, curr_d))
 
-        for i in curr_indexes:
-            curr_vector = curr_arms[:, i].reshape((curr_d, 1))
-            V_r += (T_r_array[i] * (curr_vector @ curr_vector.T))
+        #getting the rewards
+        newsum = np.zeros((curr_dim, 1))
+        for idx in curr_indexes:
+            for j in range(int(T_r_array[idx])):
+                if r ==1:
+                    histogram[idx]+=1
+                    X_t = get_reward(original_theta_star, original_arm_vectors[:, idx])
+                    temp_tuple = [idx,X_t]
+                    curr_rewards.append(temp_tuple)
+                    newsum += curr_arms[:, idx].reshape((curr_dim, 1)) * X_t
+                #section added for correct count of histogram and choose different vecs for the same vec picks
+                else:
+                    random_vec = random.choice(unused_indexes)
+                    temp_tuple = [idx,random_vec,0]
+                    histogram[random_vec]+=1
+                    histogram[idx]+=1
+                    X_t = get_reward(original_theta_star, (original_arm_vectors[:, idx]+original_arm_vectors[:, random_vec]))
+                    temp_tuple[2] = X_t
+                    curr_rewards.append(temp_tuple)
+                    newsum += (curr_arms[:, idx].reshape((curr_dim, 1))+curr_arms[:, random_vec].reshape((curr_dim, 1))) * X_t
+        
+        #use prev arms to calculate V_r
+        if r==1:
+            for i in curr_indexes:
+                curr_vector = curr_arms[:, i].reshape((curr_d, 1))
+                V_r += (T_r_array[i] * (curr_vector @ curr_vector.T))
+        else:
+            for i in sent_vec_ind:
+                curr_vector = curr_arms[:, i[0]].reshape((curr_d, 1)) + curr_arms[:, i[1]].reshape((curr_d, 1))
+                V_r += (T_r_array[i[0]] * (curr_vector @ curr_vector.T)) 
 
         # Add regularization term to V_r
         regularization_term = 1e-5 * np.eye(curr_d)
         V_r += regularization_term
-
-        #
-        newsum = np.zeros((curr_dim, 1))
-        for idx in curr_indexes:
-            for j in range(int(T_r_array[idx])):
-                X_t = get_reward(original_theta_star, original_arm_vectors[:, idx])
-                newsum += curr_arms[:, idx].reshape((curr_dim, 1)) * X_t
-
+        est_rewards = np.zeros(k)
         Theta_r = np.linalg.inv(V_r) @ newsum  # this is Theta_r as in phase 19
         print(f"theta diff : {np.linalg.norm(original_theta_star-Theta_r)}")
-        expected_rewards = np.zeros(k)
-        summed_rewards = np.zeros(k)
 
         if r ==1:
             for idx in curr_indexes:
-                expected_rewards[idx] = Theta_r.T @ curr_arms[:, idx].reshape((curr_dim, 1))
-                histogram[idx]+=1
-            first_round_rewards = expected_rewards
+                est_rewards[idx] = Theta_r.T @ curr_arms[:, idx].reshape((curr_dim, 1))
         else:
             for idx in curr_indexes:
-                random_vec = random.choice(unused_indexes)
-                histogram[random_vec]+=1
-                histogram[idx]+=1
-                summed_rewards[idx] = Theta_r.T @ (curr_arms[:, idx].reshape(curr_dim, 1)+curr_arms[:, random_vec].reshape(curr_dim, 1))
-                expected_rewards[idx] = summed_rewards[idx]-first_round_rewards[random_vec]
+                #random_vec = random.choice(unused_indexes)
+                #histogram[random_vec]+=1
+                #histogram[idx]+=1
+                est_rewards[idx] = Theta_r.T @ curr_arms[:, idx].reshape((curr_dim, 1))
 
-        sorted_indexes = np.argsort(-expected_rewards)  # Sort in descending order
+        sorted_indexes = np.argsort(-est_rewards)  # Sort in descending order
 
         if r == 1:
             new_indexes = sorted_indexes[:d]  # Select the top d/2 with highest rewards in the first iteration
@@ -173,7 +191,7 @@ def simulate_fixed_budget(k=50, d=5, T=400, mean=0, sigma=0.5, num_trials=1):
         unused_indexes = [index for index in sorted_indexes if index not in new_indexes]
         #update histogram for trudy's freq_check
 
-        plot_data.append({"r": r, "indexes": new_indexes, "rewards": expected_rewards})
+        plot_data.append({"r": r, "indexes": new_indexes, "rewards": est_rewards})
         curr_indexes = new_indexes
 
     return plot_data, original_theta_star, original_arm_vectors, histogram
