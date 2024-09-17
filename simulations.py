@@ -70,14 +70,37 @@ def best_reward_vec(arms, theta):
 
     return best_arm_index
 
-def linear_combination(arms_set,indexes):
+def make_random_combinations_matrix(idx,rows,cols,arms,unused_indexes):
     """
-    :param arms_set: a set of all possible arms
-    :param indexes: the indexes u want to sum
-    :return: a linear combination of the arms in indexes, IE if arms_set = [A1,A2,A3,A4] and indexes = [0,2] then return A1+A3
+
+    :param idx: the index of current indexes we want to create a matrix for
+    :param rows: how mayn rows will this matrix have
+    :param cols: how many columns will the matrix have
+    :param arms : which vectors
+    :param unused_indexes: which indexes will be in the binary vectors
+    :return:a matrix of size (rows,cols) where every row has a binary vector of (1,0) that are created randomly
     """
-    return np.sum(arms_set[:, indexes])
-def solve_linear()
+    # print(f"rows = {rows},cols = {cols}")
+    P = np.zeros((rows,cols))
+    for i in range(rows):
+        P[i][idx] = 1
+        sample_size = np.random.randint(0,len(unused_indexes)) #generate a number of indexes that will be 1
+        chosen_indexes_vector = np.random.choice(unused_indexes,size=sample_size,replace=False) #returns a vector like [1,2,6,12] from the unused indexes
+        P[i][chosen_indexes_vector] = 1
+
+    # print(f"P = {P}")
+    return P
+
+def make_linear_combination(arms,index_vector):
+    """
+    :param arms: a matrix of all the arms of size (d,k)
+    :param index_vector: a binary vector of size(k) whichi is like [0,1,0,1..] which represents taking all the odd index numbers
+    :return: a vector which is the linear combination of them
+    """
+    selected_columns = arms[:, index_vector == 1]
+    linear_combination = np.sum(selected_columns, axis=1)
+    return linear_combination
+
 def g(pi, arm_matrix, indexes):
     """
     :param pi: a probability distribution
@@ -104,7 +127,7 @@ def g(pi, arm_matrix, indexes):
             arm_matrix[:, i].reshape((d, 1))) for i in indexes])
 
 
-def g_optimal(arm_matrix: np.ndarray, indexes: list):
+def g_optimal(arm_matrix: np.ndarray, indexes: np.ndarray):
     """
     :param arm_matrix: a matrix of current arm vectors
     :param indexes: indices of
@@ -129,37 +152,36 @@ def g_optimal(arm_matrix: np.ndarray, indexes: list):
     return pi, solver
 
 
-def simulate_fixed_budget(k=50, d=5, T=400, mean=0, sigma=0.5, num_trials=1,threshold = 1e-5):
+def simulate_fixed_budget(k=50, d=5, T=400, num_trials=1,threshold = 1e-5):
     """
     :param k:  number of samples(arms)
     :param d: the dimension of each arm
     :param T: the budget for the simulation
-    :param T: the threshold for probabilities for which we decide 0 if smaller
+    :param threshold: the threshold for probabilities for which we decide 0 if smaller
     :return:the optimal arm from the list of arms generated
     """
     plot_data = []
-    histogram = np.zeros(k)
     original_arm_vectors, original_theta_star = generate_linear_bandit_instance(k, d)
     real_best_rewards = np.asarray([original_theta_star.T @ original_arm_vectors[:, i] for i in range(k)]).reshape(
         (1, k))
-    plot_data.append({"r": 0, "rewards": real_best_rewards, "indexes": list(range(k))})
+    plot_data.append({"r": 0, "rewards": real_best_rewards, "indexes": list(range(k)),"histogram":np.zeros((k))})
     curr_arms = original_arm_vectors
-    curr_indexes = list(range(k))
+    curr_indexes = np.arange((k))
     logd = math.ceil(math.log2(d))
     print(f"logd={logd}")
     m = (T - np.min([k, (d * (d + 1) / 2)]) - sum([d / (2 ** r) for r in range(1, logd)])) / logd
     real_best_reward = best_reward_vec(original_arm_vectors, original_theta_star)
     print(f"real winner is : {real_best_reward}")
     unused_indexes = []
-    sent_vec_ind = []
+
 
     for r in range(1, 100):
         if len(curr_indexes) == 1:
             print("finished")
             print(f"winner index ={curr_indexes[0]}")
             break
-
-        curr_rewards = []
+        estimated_rewards = np.zeros((k)) #the estimated rewards which will be 0 at every round
+        histogram = np.zeros((k))     #the number of times arm i has been pulled ,will reset every round
         pi, solver = g_optimal(curr_arms, curr_indexes)
         pi[pi < threshold] = 0
         pi = pi/np.sum(pi)
@@ -170,86 +192,83 @@ def simulate_fixed_budget(k=50, d=5, T=400, mean=0, sigma=0.5, num_trials=1,thre
             T_r_array[i] = np.ceil(pi[i] * m)
         Tr = np.sum(T_r_array)
         V_r = np.zeros((d, d))
-
-        # getting the rewards
-        newsum = np.zeros((d, 1))
-        for idx in curr_indexes:
-            for j in range(int(T_r_array[idx])):
-                if r == 1:
-                    histogram[idx] += 1
-                    X_t = get_reward(original_theta_star, original_arm_vectors[:, idx])
-                    temp_tuple = [idx, X_t]
-                    curr_rewards.append(temp_tuple)
-                    newsum += curr_arms[:, idx].reshape((d, 1)) * X_t
-                # section added for correct count of histogram and choose different vecs for the same vec picks
-                else:
-                    random_vec = random.choice(unused_indexes)
-                    temp_tuple = [idx, random_vec, 0]
-                    histogram[random_vec] += 1
-                    histogram[idx] += 1
-                    X_t = get_reward(original_theta_star,
-                                     (original_arm_vectors[:, idx] + original_arm_vectors[:, random_vec]))
-                    temp_tuple[2] = X_t
-                    curr_rewards.append(temp_tuple)
-                    newsum += (curr_arms[:, idx].reshape((d, 1)) + curr_arms[:, random_vec].reshape(
-                        (d, 1))) * X_t
-
-        # use prev arms to calculate V_r
         if r == 1:
-            for i in curr_indexes:
-                curr_vector = curr_arms[:, i].reshape((d, 1))
-                V_r += (T_r_array[i] * (curr_vector @ curr_vector.T))
-        else:
-            for i in sent_vec_ind:
-                curr_vector = curr_arms[:, i[0]].reshape((d, 1)) + curr_arms[:, i[1]].reshape((d, 1))
-                V_r += (T_r_array[i[0]] * (curr_vector @ curr_vector.T))
+            estimated_rewards = np.asarray([get_reward(original_theta_star,curr_arms[:,i]) for i in curr_indexes]).reshape((k))
+            # print(f"estimated rewards shape = {estimated_rewards.shape}")
+            # print(f"estimated rewards : {estimated_rewards}")
+            top_indexes = np.argsort(estimated_rewards)[-d:]
+            # print(f"top_indexes : {top_indexes}")
+            curr_indexes =  np.asarray([idx for idx in top_indexes]).flatten()
+            unused_indexes = np.asarray([idx for idx in range(k) if idx not in curr_indexes]).flatten()
+            histogram += 1 #add 1 for every element, since we test them all
+            # print(f"current indexes : {curr_indexes},unused indexes : {unused_indexes}")
 
-                # Add regularization term to V_r
-        regularization_term = 1e-5 * np.eye(d)
-        V_r += regularization_term
-        est_rewards = np.zeros(k)
-        Theta_r = np.linalg.inv(V_r) @ newsum  # this is Theta_r as in phase 19
-        print(f"theta diff : {np.linalg.norm(original_theta_star - Theta_r)}")
-
-        if r == 1:
-            for idx in curr_indexes:
-                est_rewards[idx] = Theta_r.T @ curr_arms[:, idx].reshape((d, 1))
         else:
             for idx in curr_indexes:
-                # random_vec = random.choice(unused_indexes)
-                # histogram[random_vec]+=1
-                # histogram[idx]+=1
-                est_rewards[idx] = Theta_r.T @ curr_arms[:, idx].reshape((d, 1))
+                if T_r_array[idx] != 0:
+                    num_rows = int(T_r_array[idx])
+                    histogram[idx] += num_rows
+                    P = make_random_combinations_matrix(idx,num_rows,k,curr_arms,unused_indexes) # create the matrix P with T_r[i] rows and k columns
+                    sums_columns = np.sum(P,axis=0)
+                    for j in range(k):
+                        histogram[j]  += sums_columns[j]
+                    all_combinations_rewards = np.asarray([get_reward(original_theta_star,make_linear_combination(curr_arms,P[row])) for row in range(num_rows)]).reshape((num_rows))
+                    # all combination_rewards[i] represents the reward from pulling the arm which is the summation of the arms with indexes from P[i] + noise
 
-        sorted_indexes = np.argsort(-est_rewards)  # Sort in descending order
+                    # print(f"all_combinations_rewards size = {all_combinations_rewards.shape}")
+                    # print(f"all_combinations_rewards = {all_combinations_rewards}")
+                    avg_reward = np.linalg.pinv(P) @ all_combinations_rewards #the OLS estimator for the rewards of arm0,arm1... we want arm[idx] because it has the most information
+                    # print(f"avg_reward = {avg_reward}") #the average reward for each index 0,1,..k-1 , we are only interested in the idx
+                    estimated_rewards[idx] = avg_reward[idx]
+                    for idx2 in unused_indexes:
+                        estimated_rewards[idx2] += avg_reward[idx2]
 
-        if r == 1:
-            new_indexes = sorted_indexes[:d]  # Select the top d/2 with highest rewards in the first iteration
-        else:
-            new_indexes = sorted_indexes[
-                          :len(curr_indexes) // 2]  # Select the top half with highest rewards from second iteration
-        unused_indexes = [index for index in sorted_indexes if index not in new_indexes]
-        # update histogram for trudy's freq_check
+            for idx in unused_indexes:
+                # print(f"estimated_rewards[{idx}]={estimated_rewards[idx]}")
+                # print(f"histogram[{idx}] ={histogram[idx]}")
+                estimated_rewards[idx] = estimated_rewards[idx]/histogram[idx]
+        dummy_rounds = int(Tr/int(len(curr_indexes)))
+        for pull in range(dummy_rounds):
+            P = make_random_combinations_matrix(np.random.randint(k), 1, k, curr_arms,unused_indexes)  # create the matrix P with T_r[i] rows and k columns
+            all_combinations_rewards = np.asarray([get_reward(original_theta_star, make_linear_combination(curr_arms, P[row])) for row in range(1)]).reshape((1))
+            sums_columns = np.sum(P, axis=0)
+            for j in range(k):
+                histogram[j] += sums_columns[j]
+        L = len(curr_indexes)
+        print(f"curr indexes = {curr_indexes}")
+        num_top_elements = int(np.ceil(L / 2))
+        rewards_for_current_indexes = estimated_rewards[curr_indexes]
+        top_indices_in_current = np.argsort(rewards_for_current_indexes)[-num_top_elements:]
+        top_indexes = curr_indexes[top_indices_in_current]
+        curr_indexes = top_indexes
+        unused_indexes = np.asarray([i for i in range(k) if i not in curr_indexes]).flatten()
+        print(f"Histogram at round {r} = {histogram}")
+        plot_data.append({"r":r,"rewards":estimated_rewards,"indexes":curr_indexes,"histogram":histogram})
 
-        plot_data.append({"r": r, "indexes": new_indexes, "rewards": est_rewards})
-        curr_indexes = new_indexes
-
-    return plot_data, original_theta_star, original_arm_vectors, histogram
 
 
-def make_plots(plot_data: list, histogram: list):
+
+
+
+
+
+    return plot_data, original_theta_star, original_arm_vectors
+
+
+def make_plots(plot_data: list):
     """
-    :param plot_data: a list of r stages, each element is a dict with keys "r"(round),"indexes"(current indexes),"rewards" which are the expected rewards
+    :param plot_data: a list of r stages, each element is a dict with keys "r"(round),"indexes"(current indexes),"rewards" which are the expected rewards and "histogram
     :return: make a matplotlib from each stage, where x values will be indexes,y values will be expected rewards, at stage 0 those are the real rewards with no noise
     """
     k = len(plot_data[0]['indexes'])
     num_rounds = len(plot_data)
+    cummulative_histogram = np.zeros((k))
     for stage in plot_data:
         round_number = stage['r']
         indexes = stage['indexes']
         rewards = stage['rewards'].flatten()
         reduced_rewards = [rewards[i] for i in indexes]
-
+        cummulative_histogram = cummulative_histogram + stage['histogram']
         # Create a histogram for each round
         plt.figure()
         # print("indexes = ", indexes)
@@ -259,16 +278,23 @@ def make_plots(plot_data: list, histogram: list):
         plt.ylabel('Expected Reward')
         plt.title(f'Round {round_number}')
         plt.show()
+        # Plot trudy's freq check
+        plt.figure()
+        plt.bar(range(len(stage['histogram'])), stage['histogram'])
+        plt.xlabel('Arm Index')
+        plt.ylabel('occurences')
+        plt.title(f'Trudys histogram at round {round_number}')
+        plt.show()
 
     # Plot trudy's freq check
     plt.figure()
-    plt.bar(range(len(histogram)), histogram)
+    plt.bar(range(len(cummulative_histogram)), cummulative_histogram)
     plt.xlabel('Arm Index')
     plt.ylabel('occurences')
-    plt.title(f'Trudys histogram {round_number}')
+    plt.title(f'Trudys Cummulative Histogram')
     plt.show()
 
 
-plot_data, original_theta_star, original_arm_vectors, histogram = simulate_fixed_budget(num_trials=1)
-make_plots(plot_data, histogram)
+plot_data, original_theta_star, original_arm_vectors = simulate_fixed_budget(num_trials=1)
+make_plots(plot_data)
 print(f"globalvar = {global_var}")
