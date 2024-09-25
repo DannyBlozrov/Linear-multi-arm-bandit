@@ -1,6 +1,7 @@
 import numpy as np
 from scipy import optimize
 import matplotlib.pyplot as plt
+from scipy.stats import entropy
 
 def arms_method(method:str,mean=0,variance=1):
     """
@@ -159,7 +160,6 @@ def make_plots(plot_data: list):
     :return: make a matplotlib from each stage, where x values will be indexes,y values will be expected rewards, at stage 0 those are the real rewards with no noise
     """
     k = len(plot_data[0]['indexes'])
-    num_rounds = len(plot_data)
     cummulative_histogram = np.zeros((k))
     for stage in plot_data:
         round_number = stage['r']
@@ -189,3 +189,30 @@ def make_plots(plot_data: list):
     plt.ylabel('Occurrences')
     plt.title('Cumulative Histogram')
     plt.show()
+
+
+def calculate_kl_divergence_with_uniform(plot_data: list):
+    """
+    :param plot_data: a list of r stages, each element is a dict with keys "r"(round),"indexes"(current indexes),
+                      "rewards" (expected rewards) and "histogram" (the number of times each arm was pulled).
+    :return: The KL divergence between the cumulative histogram and a uniform distribution of the same size.
+    """
+    # Calculate cumulative histogram
+    k = len(plot_data[0]['indexes'])  # Number of arms
+    cumulative_histogram = np.zeros((k))
+
+    for stage in plot_data:
+        cumulative_histogram += stage['histogram']
+
+    # Normalize cumulative histogram to create a probability distribution
+    cumulative_histogram_prob = cumulative_histogram / np.sum(cumulative_histogram)
+
+    # Create a uniform distribution of the same size
+    uniform_distribution = np.ones(k) / k
+
+    # Calculate KL divergence (using scipy's entropy function for KL divergence)
+    kl_divergence = entropy(cumulative_histogram_prob, uniform_distribution)
+
+    return kl_divergence
+
+
