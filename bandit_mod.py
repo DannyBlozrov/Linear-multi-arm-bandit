@@ -126,8 +126,3 @@ def simulate_modified(k=50, d=5, T=400, num_trials=1,threshold = 1e-5):
     return plot_data, original_theta_star, original_arm_vectors,send_counter,is_correct
 
 
-
-
-
-# plot_data, original_theta_star, original_arm_vectors = simulate_modified(num_trials=1)
-# make_plots(plot_data)
