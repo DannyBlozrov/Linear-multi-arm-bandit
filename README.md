@@ -1,6 +1,6 @@
 # Linear-multi-arm-bandit
 This is is the GitHub page of the Engineering Project of Daniel Blozrov and Dean Elimelech under Asaf Cohen's guidance.
-The code contains simulations and an algorithm to solve the multi armed bandit problem , and is based around our paper which can be found at This site was built using [Typst](https://typst.app/project/rID3L_KmAjmQz75AsGRRrk). 
+The code contains simulations and an algorithm to solve the multi armed bandit problem , and is based around our paper which can be found at  [Typst](https://typst.app/project/rID3L_KmAjmQz75AsGRRrk). 
 
 
 # Running instructions For Simulations :
