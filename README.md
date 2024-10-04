@@ -1,4 +1,4 @@
-# Linear-multi-arm-bandit
+# Linear-Multi-Arm-Bandit While Avoiding Detection on fixed Budget
 This is the GitHub page for the Engineering Project by Daniel Blozrov and Dean Elimelech, conducted under the guidance of Asaf Cohen. The repository contains simulations and an algorithm designed to solve the multi-armed bandit problem, based on our paper, which can be found at Typst.  [Typst](https://typst.app/project/rID3L_KmAjmQz75AsGRRrk). 
 
 
