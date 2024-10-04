@@ -63,7 +63,9 @@ pip install -r requirements.txt
 ```
 ---
 ### 6. Run the simulation
+After installing the dependencies specified in `requirements.txt` run:
 ``` py main.py ```
+
 Enter the number of arm vectors, the dimension of each vector, the budget limit T and the number of simulations, or just press enter to skip and use default values (50,5,400,100)
 ### 7. Deactivate the virtual environment
 ```bash
