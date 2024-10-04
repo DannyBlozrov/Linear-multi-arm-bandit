@@ -3,7 +3,7 @@ This is is the GitHub page of the Engineering Project of Daniel Blozrov and Dean
 The code contains simulations and an algorithm to solve the multi armed bandit problem , and is based around our paper which can be found at This site was built using [Typst](https://typst.app/project/rID3L_KmAjmQz75AsGRRrk). 
 
 
-# Running instructions - Windows
+# Running instructions For Simulations :
 ### 1. Install Python
 
 #### On macOS:
