@@ -33,24 +33,21 @@ def generate_linear_bandit_instance(k, d):
     :param d: the dimension of each sample
     :return:a matrix of arm vectors of size dxk, theta star of size dx1
     """
-    method = arms_method('uniform',15)
+    method = arms_method('uniform',2)
     arm_vectors = generate_arm_vectors(k,d,method)
     theta = np.random.rand(d).reshape(d, 1)
     return arm_vectors.T,theta
 
 
-def get_reward(theta, arm):
+def get_reward(theta, arm,noise=np.random.normal(loc=0, scale=1, size=1)):
     # loc is the mean, scale is the variance
     armdim = arm.shape[0]
     arm = np.reshape(arm, (armdim, 1))
-    awgn = np.random.normal(loc=0, scale=1, size=1)
-    return theta.T @ arm + awgn
+    return theta.T @ arm + noise
 
 
 def get_real_reward(theta, arm):
-    # Ensure arm is a column vector
     arm = arm.reshape(-1, 1)  # d x 1
-    # Perform the matrix multiplication
     return (theta.T @ arm).item()  # Result is a scalar
 
 
@@ -68,7 +65,6 @@ def best_reward_vec(arms, theta):
 
 def make_random_combinations_matrix(idx,rows,cols,arms,unused_indexes):
     """
-
     :param idx: the index of current indexes we want to create a matrix for
     :param rows: how mayn rows will this matrix have
     :param cols: how many columns will the matrix have
@@ -129,12 +125,12 @@ def g_optimal(arm_matrix: np.ndarray, indexes: np.ndarray):
     :param indexes: indices of
     :return: a vector of probabilities (0,1) for each arm , using some optimization program
     """
-    print(arm_matrix.shape)
+    # print(arm_matrix.shape)
     d, k = np.shape(arm_matrix)
-    print(f"k={k},d={d}")
+    # print(f"k={k},d={d}")
     num_vecs = len(indexes)
-    print(f"arm matrix dims = {arm_matrix.shape}")
-    print(f"indexes = {indexes}")
+    # print(f"arm matrix dims = {arm_matrix.shape}")
+    # print(f"indexes = {indexes}")
     pi_0 = (1 / num_vecs) * np.ones((num_vecs))  # initial guess to find pi
     constraints = lambda v: np.sum(v) - 1  # sum of probabilities must equal 1
     constraints_dict = {'type': 'eq', 'fun': constraints}

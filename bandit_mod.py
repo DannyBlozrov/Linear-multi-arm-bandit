@@ -3,35 +3,25 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import optimize
 import random
-from functions import (
-    arms_method,
-    generate_arm_vectors,
-    generate_linear_bandit_instance,
-    get_reward,
-    get_real_reward,
-    best_reward_vec,
-    make_random_combinations_matrix,
-    make_linear_combination,
-    g,
-    g_optimal,
-    apply_orthonormal_transformation,
-    make_plots
-)
+from functions import *
 
 
 
 
-def simulate_modified(k=50, d=5, T=400, num_trials=1,threshold = 1e-5):
+def simulate_modified(arms,theta,T,threshold = 1e-5):
     """
-    :param k:  number of samples(arms)
-    :param d: the dimension of each arm
+    :param arms:a matrix of arms of size (k,d)
+    :param theta: the optimal hidden vector
     :param T: the budget for the simulation
     :param threshold: the threshold for probabilities for which we decide 0 if smaller
     :return:the optimal arm from the list of arms generated
     """
     plot_data = []
+    k = arms.shape[1]
+    d = arms.shape[0]
+    original_arm_vectors = arms
+    original_theta_star = theta
     send_counter = 0
-    original_arm_vectors, original_theta_star = generate_linear_bandit_instance(k, d)
     real_best_rewards = np.asarray([original_theta_star.T @ original_arm_vectors[:, i] for i in range(k)]).reshape(
         (1, k))
     plot_data.append({"r": 0, "rewards": real_best_rewards, "indexes": list(range(k)),"histogram":np.zeros((k))})
