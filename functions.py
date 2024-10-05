@@ -33,7 +33,7 @@ def generate_linear_bandit_instance(k, d):
     :param d: the dimension of each sample
     :return:a matrix of arm vectors of size dxk, theta star of size dx1
     """
-    method = arms_method('uniform',2)
+    method = arms_method('uniform',1)
     arm_vectors = generate_arm_vectors(k,d,method)
     theta = np.random.rand(d).reshape(d, 1)
     return arm_vectors.T,theta

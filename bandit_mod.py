@@ -28,25 +28,21 @@ def simulate_modified(arms,theta,T,threshold = 1e-5):
     curr_arms = original_arm_vectors
     curr_indexes = np.arange((k))
     logd = math.ceil(math.log2(d))
-    print(f"logd={logd}")
+    # print(f"logd={logd}")
     m = (T - np.min([k, (d * (d + 1) / 2)]) - sum([d / (2 ** r) for r in range(1, logd)])) / logd
     real_best_reward = best_reward_vec(original_arm_vectors, original_theta_star)
-    print(f"real winner is : {real_best_reward}")
+    # print(f"real winner is : {real_best_reward}")
     unused_indexes = []
+    is_correct = 0
 
 
-    for r in range(1, 100):
-        if len(curr_indexes) == 1:
-            print("finished")
-            print(f"winner index ={curr_indexes[0]}")
-            final_winner = curr_indexes[0]
-            break
+    for r in range(1, int(logd)+1):
         estimated_rewards = np.zeros((k)) #the estimated rewards which will be 0 at every round
         histogram = np.zeros((k))     #the number of times arm i has been pulled ,will reset every round
         pi, solver = g_optimal(curr_arms, curr_indexes)
         pi[pi < threshold] = 0
         pi = pi/np.sum(pi)
-        print(f"pi = {pi}")
+        # print(f"pi = {pi}")
         T_r_array = np.zeros((k))
         # calc T_r
         for i in curr_indexes:
@@ -90,7 +86,8 @@ def simulate_modified(arms,theta,T,threshold = 1e-5):
                 # print(f"estimated_rewards[{idx}]={estimated_rewards[idx]}")
                 # print(f"histogram[{idx}] ={histogram[idx]}")
                 estimated_rewards[idx] = estimated_rewards[idx]/histogram[idx]
-        dummy_rounds = int(Tr/int(len(curr_indexes)))
+        #dummy_rounds = int(0.5*Tr/int(len(curr_indexes)))
+        dummy_rounds = 0
         for pull in range(dummy_rounds):
             P = make_random_combinations_matrix(np.random.randint(k), 1, k, curr_arms,unused_indexes)  # create the matrix P with T_r[i] rows and k columns
             all_combinations_rewards = np.asarray([get_reward(original_theta_star, make_linear_combination(curr_arms, P[row])) for row in range(1)]).reshape((1))
@@ -99,19 +96,23 @@ def simulate_modified(arms,theta,T,threshold = 1e-5):
             for j in range(k):
                 histogram[j] += sums_columns[j]
         L = len(curr_indexes)
-        print(f"curr indexes = {curr_indexes}")
+        # print(f"curr indexes = {curr_indexes}")
         num_top_elements = int(np.ceil(L / 2))
         rewards_for_current_indexes = estimated_rewards[curr_indexes]
         top_indices_in_current = np.argsort(rewards_for_current_indexes)[-num_top_elements:]
         top_indexes = curr_indexes[top_indices_in_current]
         curr_indexes = top_indexes
         unused_indexes = np.asarray([i for i in range(k) if i not in curr_indexes]).flatten()
-        print(f"Histogram at round {r} = {histogram}")
+        # print(f"Histogram at round {r} = {histogram}")
         plot_data.append({"r":r,"rewards":estimated_rewards,"indexes":curr_indexes,"histogram":histogram})
-    is_correct = 0
-    print(f"final winner {r} = real best reward: {real_best_reward}")
-    if final_winner == real_best_reward:
-        is_correct = 1
+        if len(curr_indexes) == 1:
+            # print("finished")
+            # print(f"winner index ={curr_indexes[0]}")
+            final_winner = curr_indexes[0]
+            if (final_winner == real_best_reward):
+                is_correct = 1
+            break
+
 
     return plot_data, original_theta_star, original_arm_vectors,send_counter,is_correct
 
