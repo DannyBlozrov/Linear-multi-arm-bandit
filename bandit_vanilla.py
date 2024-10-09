@@ -4,16 +4,15 @@ import matplotlib.pyplot as plt
 from scipy import optimize
 import random
 from functions import *
-global_var_vanilla = 0
-global_var__succ_vanilla = 0
 
-def simulate_vanilla(arms,theta,T,threshold = 1e-5):
+
+def simulate_vanilla(arms,theta,T,noise_params,threshold = 1e-5):
     """
     Simulates a bandit algorithm with a fixed budget, adjusting arm vectors when needed.
     
-    :param k:  number of arms
-    :param d: the dimension of each arm
+    :param arms:a matrix of size (d,k) which contains the arms as columns
     :param T: the budget for the simulation
+    :param noise_params: a dict holding keys distribution == 'normal' 'mean':0,'std_dev':1 which are used for the noise generation
     :param threshold: the threshold for probabilities for which we decide 0 if smaller
     :return: the optimal arm from the list of arms generated
     """
@@ -28,84 +27,100 @@ def simulate_vanilla(arms,theta,T,threshold = 1e-5):
     
     curr_arms = original_arm_vectors
     curr_indexes = np.arange(k)
-    logd = math.ceil(math.log2(d))
+    logd = int(np.ceil(math.log2(d)))
     #print(f"logd={logd}")
     
     m = (T - np.min([k, (d * (d + 1) / 2)]) - sum([d / (2 ** r) for r in range(1, logd)])) / logd
+    print(f"m = {m}")
     real_best_reward = best_reward_vec(original_arm_vectors, original_theta_star)
     unused_indexes = []
     is_correct = 0
 
     d_r = d  # Start with initial dimension
-    for r in range(1, int(logd)+1):
+    for r in range(1, int(logd)+2):
         estimated_rewards = np.zeros(k)  # Estimated rewards (reset every round)
         histogram = np.zeros(k)  # Number of times each arm is pulled (reset every round)
-        
+
         # Check if d_r == d_r-1 (dimension stays the same)
-        if r > 1:
-            d_r_prev = d_r
-            d_r = curr_arms.shape[0]  # Dimension at round r
-            
-            if d_r == d_r_prev:
-                # Keep current arms as they are
-                for idx in curr_indexes:
-                    estimated_rewards[idx] += get_reward(original_theta_star, curr_arms[:, idx])
-                    send_counter+=1
-            else:
-                # Update arms with orthonormal basis matrix B_r
-                # Find matrix B_r, whose columns form an orthonormal basis of the subspace
-                _, B_r = np.linalg.qr(curr_arms[:, curr_indexes])
-                
-                # Update arm vectors by B_r^T * previous arm vectors
-                for idx in curr_indexes:
-                    curr_arms[:, idx] = B_r.T @ curr_arms[:, idx]
-        
+        #### RANK\DIMENSION Reduce
+        d_r_prev = d_r
+        d_r = np.linalg.matrix_rank(curr_arms)
+
+        if d_r == d_r_prev:
+            # Keep current arms as they are
+                pass
+        else:
+            # Update arms with orthonormal basis matrix B_r
+            # Find matrix B_r, whose columns form an orthonormal basis of the subspace
+            _, B_r = np.linalg.qr(curr_arms[:, curr_indexes])
+            # Update arm vectors by B_r^T * previous arm vectors
+            for idx in curr_indexes:
+                print(f"old dim = {curr_arms[:, idx].shape}")
+                curr_arms[:, idx] = B_r.T @ curr_arms[:, idx]
+                print(f"new dim = {curr_arms[:,idx].shape} ")
+
         pi, solver = g_optimal(curr_arms, curr_indexes)
         pi[pi < threshold] = 0
         pi = pi / np.sum(pi)  # Normalize to sum to 1
-        
+        print(f"pi = {pi}")
         # print(f"pi = {pi}")
-        T_r_array = np.zeros(k)
-        
+        T_r_array = np.zeros(k,dtype=int)
         # Calculate T_r for each arm
         for i in curr_indexes:
-            T_r_array[i] = np.ceil(pi[i] * m)
+            T_r_array[i] = int(np.ceil(pi[i] * m))
+        print(f"T_r array = {T_r_array}")
         Tr = np.sum(T_r_array)
-        
         V_r = np.zeros((d, d))
+        acc = np.zeros(d)
         if r == 1:
-            estimated_rewards = np.asarray([get_reward(original_theta_star, curr_arms[:, i]) for i in curr_indexes]).reshape((k))
-            send_counter+=len(curr_indexes)
-            top_indexes = np.argsort(estimated_rewards)[-d:]
-            curr_indexes = np.asarray([idx for idx in top_indexes]).flatten()
-            unused_indexes = np.asarray([idx for idx in range(k) if idx not in curr_indexes]).flatten()
-            histogram += 1  # Add 1 for every element, since we test them all
-        else:
+            # print(f"curr arms = {curr_arms}")
+            #doing step 19
             for idx in curr_indexes:
-                if T_r_array[idx] != 0:
-                    num_rows = int(T_r_array[idx])
-                    histogram[idx] += num_rows
-                    for i in range(num_rows):
-                        histogram[idx] += 1
-                        reward = get_reward(original_theta_star, curr_arms[:, idx])
-                        send_counter+=1
-                        estimated_rewards[idx] += reward
-            #
-            # for idx in unused_indexes:
-            #     estimated_rewards[idx] = estimated_rewards[idx] / histogram[idx]
-        
-        L = len(curr_indexes)
-        num_top_elements = int(np.ceil(L / 2))
-        rewards_for_current_indexes = estimated_rewards[curr_indexes]
-        top_indices_in_current = np.argsort(rewards_for_current_indexes)[-num_top_elements:]
-        top_indexes = curr_indexes[top_indices_in_current]
-        curr_indexes = top_indexes
-        unused_indexes = np.asarray([i for i in range(k) if i not in curr_indexes]).flatten()
-        #print(f"Histogram at round {r} = {histogram}")
+                outer_product = np.outer(curr_arms[:,idx],curr_arms[:,idx])
+                outer_product = T_r_array[idx] * outer_product
+                V_r += outer_product
+                for w in range(T_r_array[idx]):
+                    reward = get_reward(theta,curr_arms[:,idx],noise_params)
+                    histogram[idx] += 1
+                    send_counter += 1
+                    acc += (curr_arms[:,idx] * reward)
+            print(f"V_r = {V_r}")
+            V_r_inverse = invert_matrix(V_r)
+            theta_hat = V_r_inverse @ acc   #finishes step 19 of the alg
+            print(f"theta hat = {theta_hat}")
+            print(f"curr indexes = {curr_indexes}")
+            estimated_rewards = np.asarray([np.inner(curr_arms[:,i],theta_hat) for i in range(k)]) #step 20
+            print(f"estimated rewards = {estimated_rewards}")
+            curr_indexes = prune_indexes(estimated_rewards,curr_indexes,math.ceil(d / 2))  #step 21 done
+            print(f"new curr indexes = {curr_indexes}")
+            unused_indexes = np.asarray([idx for idx in range(k) if idx not in curr_indexes]).flatten()
+        else:
+            print(f"curr arms = {curr_arms}")
+            # doing step 19
+            for idx in curr_indexes:
+                outer_product = np.outer(curr_arms[:, idx], curr_arms[:, idx])
+                outer_product = T_r_array[idx] * outer_product
+                V_r += outer_product
+                for w in range(T_r_array[idx]):
+                    reward = get_reward(theta, curr_arms[:, idx], noise_params)
+                    histogram[idx] += 1
+                    send_counter += 1
+                    acc += (curr_arms[:, idx] * reward)
+            print(f"V_r = {V_r}")
+            V_r_inverse = invert_matrix(V_r)
+            theta_hat = V_r_inverse @ acc  # finishes step 19 of the alg
+            print(f"theta hat = {theta_hat}")
+            print(f"curr indexes = {curr_indexes}")
+            estimated_rewards = np.asarray([np.inner(curr_arms[:, i], theta_hat) for i in range(k)])  # step 20
+            print(f"estimated rewards = {estimated_rewards}")
+            curr_indexes = prune_indexes(estimated_rewards, curr_indexes, math.ceil(d // (2**r)))  # step 21 done
+            print(f"new curr indexes = {curr_indexes}")
+            unused_indexes = np.asarray([idx for idx in range(k) if idx not in curr_indexes]).flatten()
         plot_data.append({"r": r, "rewards": estimated_rewards, "indexes": curr_indexes, "histogram": histogram})
         if len(curr_indexes) == 1:
+            print(f"r = {r}")
             final_winner = curr_indexes[0]
-            #print(f"finnal winner ={final_winner},real best reward = {real_best_reward}")
+            print(f"finnal winner ={final_winner},real best reward = {real_best_reward}")
             if final_winner == real_best_reward:
                 is_correct = 1
             break

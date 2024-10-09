@@ -2,53 +2,112 @@ import numpy as np
 from scipy import optimize
 import matplotlib.pyplot as plt
 from scipy.stats import entropy
+import json
+import warnings
 
-def arms_method(method:str,mean=0,variance=1):
-    """
+def load_config(file_path):
+    with open(file_path, 'r') as file:
+        config = json.load(file)
+    return config
 
-    :param method: a string such as 'normal' or 'uniform'
-    :param mean: a float,mean
-    :param variance: a float,variance
-    :return: a lambda of (k,d) that will return an arm generating method [lambda]
-    """
-    if method == 'uniform':
-        return lambda rows, cols: mean * np.random.rand(rows, cols)
-    if method == 'normal':
-        std_dev = np.sqrt(variance)
-        return lambda rows,cols:np.random.normal(loc=mean,scale=std_dev,size=(rows,cols))
-
-def generate_arm_vectors(k:int,d:int,method) -> np.ndarray:
-    """
-
-    :param k:number of vectors
-    :param d: size of each vectors
-    :param method : method to generate (higher order function), default is uniform [0,15]
-    :return: a nparray of size (d,k)
-    """
-    arm_vectors = method(k,d)
-    return arm_vectors
-def generate_linear_bandit_instance(k, d):
+def generate_linear_bandit_instance(k:int, d:int,distribution_params:dict):
     """
     :param K: number of samples of a_i..a_k
     :param d: the dimension of each sample
+    :param distribution_params:dict : a dict with keys {method,mean,std_dev,low,high} where method, representing 'uniform' , 'normal' or 'paper'
     :return:a matrix of arm vectors of size dxk, theta star of size dx1
     """
-    method = arms_method('uniform',1)
-    arm_vectors = generate_arm_vectors(k,d,method)
-    theta = np.random.rand(d).reshape(d, 1)
-    return arm_vectors.T,theta
+    arms,theta = None,None
+    if distribution_params['method'] == 'paper':
+        arms = np.zeros((2,k))
+        for i in range(1,k-1):
+            phi_i = np.random.normal(0,0.09**2)
+            arms[0,i] = np.cos((np.pi / 4) + phi_i)
+            arms[1, i] = np.sin((np.pi / 4) + phi_i)
+        arms[0,0] = 1
+        arms[0,1] = 0
+        arms[0,k-1] = np.cos((3*np.pi / 4))
+        arms[1, k-1] = np.sin((3*np.pi / 4))
+        theta = np.asarray(([1,0])).T
+
+    if distribution_params['method'] == 'normal':
+        arms = np.random.normal(0,1,size = (d,k))
+        theta_params = distribution_params['theta']
+        if theta_params['method'] == "normal":
+            theta_mean = theta_params['mean']
+            theta_stddev = theta_params['std_dev']
+            theta = np.random.normal(theta_mean,theta_stddev,size=(d,1))
+        if theta_params['method'] == "uniform":
+            theta_low = theta_params['low']
+            theta_high = theta_params['high']
+            theta = theta_low + (theta_high - theta_low) *np.random.rand(d,1)
+
+    if distribution_params['method'] == 'uniform':
+        high = distribution_params['high']
+        low = distribution_params['low']
+        arms = low + (high - low) * np.random.rand(d, k)
+        theta_params = distribution_params['theta']
+        if theta_params['method'] == "normal":
+            theta_mean = theta_params['mean']
+            theta_stddev = theta_params['std_dev']
+            theta = np.random.normal(theta_mean, theta_stddev, size=(d))
+        if theta_params['method'] == "uniform":
+            theta_low = theta_params['low']
+            theta_high = theta_params['high']
+            theta = theta_low + (theta_high - theta_low) * np.random.rand(d)
+    return arms,theta
 
 
-def get_reward(theta, arm,noise=np.random.normal(loc=0, scale=1, size=1)):
-    # loc is the mean, scale is the variance
-    armdim = arm.shape[0]
-    arm = np.reshape(arm, (armdim, 1))
-    return theta.T @ arm + noise
+def get_reward(theta, arm,noise_params):
+    """
 
+    :param theta: a vector of size (d,1)
+    :param arm: an arm, a vector of size (d,1)
+    :param noise_params: params for the noise we create
+    :return:  the sum inner product of <arm,theta>+noise
+    """
 
+    noise = 0
+    if noise_params['distribution'] == 'normal':
+        mean = noise_params['mean']
+        std_dev = noise_params['std_dev']
+        noise = np.random.normal(mean,std_dev)
+
+    return np.inner(theta,arm) + noise
+
+def prune_indexes(rewards:np.ndarray,curr_indexes:np.ndarray,num_elements:int = None):
+    """
+    :param rewards: a vector with rewards of size (k)
+    :param curr_indexes: a vector with good indexes
+    :param num_elements: an int that says how many elements to keep
+    :return: a new vector that is the subset of curr_indexes with the num_elements highest rewards
+    """
+    if not num_elements:
+        L = len(curr_indexes)
+        num_elements = int(np.ceil(L / 2))
+    rewards_for_current_indexes = rewards[curr_indexes]
+    top_indices_in_current = np.argsort(rewards_for_current_indexes)[-num_elements:]
+    top_indexes = curr_indexes[top_indices_in_current]
+    return top_indexes
 def get_real_reward(theta, arm):
     arm = arm.reshape(-1, 1)  # d x 1
     return (theta.T @ arm).item()  # Result is a scalar
+
+def invert_matrix(M,regularization = 1e-3):
+    """
+    :param M: a square matrix we try to invert, if its non invertible - we add a regularization term and then invert
+    :return: the inverse of the matrix, or a close approximation
+    """
+    try:
+        res = np.linalg.inv(M)
+        return res
+    except np.linalg.LinAlgError:
+        warnings.warn("The matrix is singular", UserWarning)
+        n = M.shape[0]
+        regularization_mat = regularization * np.eye(n)
+        return np.linalg.inv(M+regularization_mat)
+
+
 
 
 def best_reward_vec(arms, theta):
@@ -93,56 +152,74 @@ def make_linear_combination(arms,index_vector):
     linear_combination = np.sum(selected_columns, axis=1)
     return linear_combination
 
-def g(pi, arm_matrix, indexes):
+def g(pi, arms, indexes):
     """
     :param pi: a probability distribution
     :param arm_matrix: a matrix of arms
     :param indexes:a list of indexes
     :return: the best arm in given distribution using a_i^T V(pi)^-1 a as the mahalobanius norm
     """
-    d = arm_matrix.shape[0]
+    d = arms.shape[0]
     V_pi = np.zeros((d, d))
-    for i in indexes:
-        V_pi += np.asarray(pi[i] * (arm_matrix[:, i].reshape((d, 1)) @ (arm_matrix[:, i].reshape((d, 1)).T)))
-
-    # Check if V_pi is singular or nearly singular
-    try:
-        np.linalg.inv(V_pi)
-        # If no exception, the matrix is not singular
-        return np.max([(arm_matrix[:, i].reshape((d, 1))).T @ np.linalg.inv(V_pi).reshape((d, d)) @ (
-            arm_matrix[:, i].reshape((d, 1))) for i in indexes])
-    except np.linalg.LinAlgError:
-        # Matrix is singular; apply regularization
-        regularization_term = 1e-5 * np.eye(d)
-        V_pi += regularization_term
-        return np.max([(arm_matrix[:, i].reshape((d, 1))).T @ np.linalg.inv(V_pi).reshape((d, d)) @ (
-            arm_matrix[:, i].reshape((d, 1))) for i in indexes])
+    for idx in indexes:
+        outer_product = np.outer(arms[:, idx], arms[:, idx])
+        outer_product =pi[idx] * outer_product
+        V_pi += outer_product
+    V_inverse = invert_matrix(V_pi)
+    all_norms = np.asarray([(arms[:,idx].T @ V_inverse) @ arms[:,idx] for idx in indexes])
+    return np.max(all_norms)
 
 
-def g_optimal(arm_matrix: np.ndarray, indexes: np.ndarray):
+def g_optimal(arm_matrix: np.ndarray, indexes: np.ndarray, max_support=None, tol=1e-5):
     """
     :param arm_matrix: a matrix of current arm vectors
-    :param indexes: indices of
-    :return: a vector of probabilities (0,1) for each arm , using some optimization program
+    :param indexes: indices of arms
+    :param max_support: maximum number of non-zero elements allowed in pi
+    :param tol: tolerance for small values to be considered as zero
+    :return: a sparse vector of probabilities (0,1) for each arm, using optimization
     """
-    # print(arm_matrix.shape)
     d, k = np.shape(arm_matrix)
-    # print(f"k={k},d={d}")
     num_vecs = len(indexes)
-    # print(f"arm matrix dims = {arm_matrix.shape}")
-    # print(f"indexes = {indexes}")
-    pi_0 = (1 / num_vecs) * np.ones((num_vecs))  # initial guess to find pi
-    constraints = lambda v: np.sum(v) - 1  # sum of probabilities must equal 1
-    constraints_dict = {'type': 'eq', 'fun': constraints}
-    pi_0 = (1 / num_vecs) * np.ones((k))
-    bounds = [(0, 1) if i in indexes else (0, 0) for i in range(k)]
-    f = lambda pi: g(pi, arm_matrix, indexes)
-    res = optimize.minimize(fun=f, bounds=bounds, constraints=constraints_dict, x0=pi_0)
-    val = res['fun']
-    pi = res['x']
-    solver = res['message']
-    return pi, solver
+    max_support = max_support or (d * (d + 1)) // 2
 
+    # Constraints for the sum of probabilities to be 1
+    constraints = lambda v: np.sum(v) - 1
+    constraints_dict = {'type': 'eq', 'fun': constraints}
+
+    # Initial guess for pi
+    pi_0 = (1 / num_vecs) * np.ones((k))
+
+    # Bounds to ensure pi values are within [0, 1]
+    bounds = [(0, 1) if i in indexes else (0, 0) for i in range(k)]
+
+    # Define the objective function
+    f = lambda pi: g(pi, arm_matrix, indexes)
+
+    # Step 1: Initial optimization
+    res = optimize.minimize(fun=f, bounds=bounds, constraints=constraints_dict, x0=pi_0)
+
+    # Get the initial solution
+    pi = res['x']
+
+    # Step 2: Thresholding - keep the largest max_support entries
+    sorted_indices = np.argsort(-pi)  # Sort indices in descending order of pi
+    support_indices = sorted_indices[:max_support]  # Select top max_support elements
+    pi_thresholded = np.zeros_like(pi)
+    pi_thresholded[support_indices] = pi[support_indices]
+
+    # Normalize to ensure the sum is still 1
+    pi_thresholded /= np.sum(pi_thresholded)
+
+    # Step 3: Re-optimize with the active set
+    active_indexes = [i for i in support_indices if pi_thresholded[i] > tol]
+    active_bounds = [(0, 1) if i in active_indexes else (0, 0) for i in range(k)]
+    res_final = optimize.minimize(fun=f, bounds=active_bounds, constraints=constraints_dict, x0=pi_thresholded)
+
+    # Get the final sparse solution
+    pi_sparse = res_final['x']
+    solver_message = res_final['message']
+
+    return pi_sparse, solver_message
 
 def apply_orthonormal_transformation(curr_arms, curr_indexes):
     subspace_arms = curr_arms[:, curr_indexes]
