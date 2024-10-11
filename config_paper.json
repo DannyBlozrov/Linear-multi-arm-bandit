@@ -1,0 +1,32 @@
+{
+    "distribution_params":
+    {
+        "method": "paper",
+        "low": 0,
+        "high": 1,
+        "mean": 0,
+        "std_dev": 1,
+        "theta":
+        {
+            "method": "normal",
+            "mean": 0,
+            "std_dev": 1,
+            "low": 0,
+            "high": 1
+        }
+    },
+    "k": 20,
+    "T": 50,
+    "d": 2,
+    "seed": 42,
+    "seed_use": "no",
+    "output_file": "output_data.json",
+    "noise_params":
+    {
+        "distribution": "normal",
+        "mean": 0,
+        "std_dev": 1
+    },
+    "verbose": false,
+    "sim_num": 5
+}

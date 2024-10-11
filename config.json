@@ -1,0 +1,32 @@
+{
+    "distribution_params":
+    {
+        "method": "uniform",
+        "low": 0,
+        "high": 10,
+        "mean": 0,
+        "std_dev": 1,
+        "theta":
+        {
+            "method": "normal",
+            "mean": 0,
+            "std_dev": 1,
+            "low": 0,
+            "high": 1
+        }
+    },
+    "k": 6,
+    "T": 400,
+    "d": 5,
+    "seed": 42,
+    "seed_use": "no",
+    "output_file": "output_data.json",
+    "noise_params":
+    {
+        "distribution": "normal",
+        "mean": 0,
+        "std_dev": 1
+    },
+    "verbose": false,
+    "sim_num": 1
+}
