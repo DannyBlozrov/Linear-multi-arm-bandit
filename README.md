@@ -62,7 +62,7 @@ pip install -r requirements.txt
 ```
 ---
 ### 6. Run the simulation
-After installing the dependencies specified in `requirements.txt` run:
+After installing the dependencies specified in `requirements.txt` and adjusting config.json(as explained at the bottom of the page) run:
 ``` py main.py ```
 
 Enter the number of arm vectors, the dimension of each vector, the budget limit T and the number of simulations, or just press enter to skip and use default values (50,5,400,100)
@@ -70,3 +70,36 @@ Enter the number of arm vectors, the dimension of each vector, the budget limit 
 ```bash
 deactivate
 ```
+### Configuration File Parameters
+
+The configuration file (`config.json`) contains several parameters to control the behavior and settings of the program. Below is a detailed explanation of each parameter:
+
+- **`distribution_params`**: This section defines the distribution settings for generating random variables.
+  - **`method`**: Specifies the type of distribution to use for generating values. Possible options include `"uniform"` ,"paper" `"normal"` , where "paper" refers to the sines and cosines as in the article by Yang and Tan.
+  - **`low`**: The lower bound for the uniform distribution.
+  - **`high`**: The upper bound for the uniform distribution.
+  - **`mean`**: The mean value for the normal distribution.
+  - **`std_dev`**: The standard deviation for the normal distribution.
+  - **`theta`**: An additional distribution setting specifically for a parameter named `theta`.
+    - **`method`**: The distribution method for `theta`, similar to the general `method` parameter.
+    - **`mean`**: The mean value if `theta` is generated from a normal distribution.
+    - **`std_dev`**: The standard deviation if `theta` follows a normal distribution.
+    - **`low`**: The lower bound for `theta` when using a uniform distribution.
+    - **`high`**: The upper bound for `theta` when using a uniform distribution.
+
+- **`k`**: An integer specifying the number of arms in a multi-armed bandit problem.
+
+- **`T`**: The total number of arm pulls allowed, an integer.
+
+- **`d`**: The dimensionality of the arms, an integer.
+
+- **`seed`**: A seed value for random number generation to ensure reproducibility.
+
+- **`seed_use`**: A flag indicating whether to use the specified seed for random number generation. Possible values include `"yes"` or `"no"`.
+
+- **`output_file`**: The name of the file where the output data will be written to.
+- **`noise_params`**: Parameters for the additive noise, currently only supports "normal" distribution , with "mean" and "std_dev" to be numbers.
+- **`verbose`**: 'True' to enable debug printing, will be added on later though
+- **`sim_num`**: Number of simulations of the experiment, higher numbers may lead to long processing times, no parallel computing as of yet, supports integers only.
+- **`optimization`**: The method for doing the G-optimal, currently supports "danny" and "FW".
+
