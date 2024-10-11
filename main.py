@@ -34,7 +34,7 @@ def run_simulation(config):
     # Run the simulation with user-defined parameters
     #plot_data_mod, original_theta_star, original_arm_vectors, total_appearances_mod, is_correct_mod = simulate_modified(arms, theta, T=T)
     plot_data_vanilla, original_theta_star, original_arm_vectors, total_appearances_vanilla, is_correct_vanilla = simulate_vanilla(
-        arms, theta,T,noise_params)
+        arms, theta,config)
 
     #mod_correct_counter += is_correct_mod
     vanilla_correct_counter += is_correct_vanilla
@@ -56,7 +56,7 @@ def run_simulation(config):
 
 # Main code to run simulations in parallel
 if __name__ == "__main__":
-    config = load_config('config.json')
+    config = load_config('config_paper.json')
     num_simulations = config.get('sim_num')
     successes = 0
     for i in range(num_simulations):

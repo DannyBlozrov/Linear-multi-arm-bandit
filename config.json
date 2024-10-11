@@ -28,5 +28,6 @@
         "std_dev": 1
     },
     "verbose": false,
-    "sim_num": 1
+    "sim_num": 100,
+    "optimization": "danny"
 }

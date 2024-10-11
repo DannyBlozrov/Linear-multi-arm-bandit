@@ -101,7 +101,6 @@ def invert_matrix(M,regularization = 1e-8):
         res = np.linalg.inv(M)
         return res
     except np.linalg.LinAlgError:
-        print(f"The matrix {M}is singular")
         n = M.shape[0]
         regularization_mat = regularization * np.eye(n)
         M = M + regularization_mat
@@ -178,8 +177,6 @@ def g_optimal(arm_matrix: np.ndarray, indexes: np.ndarray, max_support=None, tol
     :param tol: tolerance for small values to be considered as zero
     :return: a sparse vector of probabilities (0,1) for each arm, using optimization
     """
-    print(f"arms matrix = {arm_matrix}")
-    print(f"indexes = {indexes}")
     d, k = np.shape(arm_matrix)
     max_support = max_support or (d * (d + 1)) // 2
     constraints = lambda v: np.sum(v) - 1
@@ -201,8 +198,6 @@ def g_optimal(arm_matrix: np.ndarray, indexes: np.ndarray, max_support=None, tol
     res_final = optimize.minimize(fun=f, bounds=active_bounds, constraints=constraints_dict, x0=pi_thresholded)
     pi_sparse = res_final['x']
     solver_message = res_final['message']
-    print(f"res = {res}")
-
 
     return pi_sparse, solver_message
 
@@ -256,21 +251,51 @@ def calculate_kl_divergence_with_uniform(plot_data: list):
     :return: The KL divergence between the cumulative histogram and a uniform distribution of the same size.
     """
     # Calculate cumulative histogram
-    k = len(plot_data[0]['indexes'])  # Number of arms
-    cumulative_histogram = np.zeros((k))
+    return 1
+    # k = len(plot_data[0]['indexes'])  # Number of arms
+    # cumulative_histogram = np.zeros((k))
+    #
+    # for stage in plot_data:
+    #     cumulative_histogram += stage['histogram']
+    #
+    # # Normalize cumulative histogram to create a probability distribution
+    # cumulative_histogram_prob = cumulative_histogram / np.sum(cumulative_histogram)
+    #
+    # # Create a uniform distribution of the same size
+    # uniform_distribution = np.ones(k) / k
+    #
+    # # Calculate KL divergence (using scipy's entropy function for KL divergence)
+    # kl_divergence = entropy(cumulative_histogram_prob, uniform_distribution)
 
-    for stage in plot_data:
-        cumulative_histogram += stage['histogram']
+    #return kl_divergence
 
-    # Normalize cumulative histogram to create a probability distribution
-    cumulative_histogram_prob = cumulative_histogram / np.sum(cumulative_histogram)
 
-    # Create a uniform distribution of the same size
-    uniform_distribution = np.ones(k) / k
+def find_index(index, transforms):
+    """
+    Find the original index that maps to the given final index through a series of transformations.
 
-    # Calculate KL divergence (using scipy's entropy function for KL divergence)
-    kl_divergence = entropy(cumulative_histogram_prob, uniform_distribution)
+    :param index: The final index to trace back from.
+    :param transforms: A list where each element is a dictionary with keys 'matrix' and 'mappings'.
+                       'mappings' is a dictionary that maps old indexes to new indexes.
+    :return: The original index that maps to the given final index.
+    """
+    # Start from the last transformation and trace back
+    current_index = index
+    for transform in reversed(transforms):
+        # Get the current mapping
+        mapping = transform['mappings']
+        # Find the old index that maps to the current index
+        for old_index, new_index in mapping.items():
+            if new_index == current_index:
+                current_index = old_index
+                break
+        else:
+            # If we didn't find a mapping, the index cannot be traced back further
+            return None
 
-    return kl_divergence
+    # The final current_index will be the original index that maps to the given index
+    return current_index
+
+
 
 
