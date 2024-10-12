@@ -1,5 +1,5 @@
 # Linear-Multi-Arm-Bandit While Avoiding Detection on fixed Budget
-This is the GitHub page for the Engineering Project by Daniel Blozrov and Dean Elimelech, conducted under the guidance of Asaf Cohen. The repository contains simulations and an algorithm designed to solve the multi-armed bandit problem, based on our paper, which can be found at Typst.  [Typst](https://typst.app/project/rID3L_KmAjmQz75AsGRRrk). 
+This is the GitHub page for the Engineering Project by Daniel Blozrov and Dean Elimelech, conducted under the guidance of Asaf Cohen. The repository contains simulations and an algorithm designed to solve the multi-armed bandit problem, based on our paper, which can be found at  [Typst](https://typst.app/project/rID3L_KmAjmQz75AsGRRrk). 
 
 
 # Running instructions For Simulations :
@@ -95,7 +95,7 @@ The configuration file (`config.json`) contains several parameters to control th
 
 - **`seed`**: A seed value for random number generation to ensure reproducibility.
 
-- **`seed_use`**: A flag indicating whether to use the specified seed for random number generation. Possible values include `"yes"` or `"no"`.
+- **`seed_use`**: A flag indicating whether to use the specified seed for random number generation. Possible values include `"True"` or `"False"`.
 
 - **`output_file`**: The name of the file where the output data will be written to.
 - **`noise_params`**: Parameters for the additive noise, currently only supports "normal" distribution , with "mean" and "std_dev" to be numbers.
