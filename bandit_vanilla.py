@@ -3,7 +3,7 @@ from FW import FW_optimal
 from functions import *
 
 
-def simulate_vanilla(arms,theta,config,threshold = 1e-5):
+def simulate_vanilla(arms,theta,config):
     """
     Simulates a bandit algorithm with a fixed budget, adjusting arm vectors when needed.
     
@@ -19,6 +19,7 @@ def simulate_vanilla(arms,theta,config,threshold = 1e-5):
     d = arms.shape[0]
     T = config.get('T')
     optimization_method = config.get('optimization')    #either "danny" or "FW"
+    threshold = config.get('threshold') #tolerance for matrix inversion regularization and for error in g optimal
     original_arm_vectors = arms
     original_theta_star = theta
     curr_theta = theta
@@ -34,13 +35,14 @@ def simulate_vanilla(arms,theta,config,threshold = 1e-5):
     m = (T - np.min([k, (d * (d + 1) / 2)]) - sum([d / (2 ** r) for r in range(1, logd)])) / logd
     # print(f"m = {m}")
     real_best_reward = best_reward_vec(original_arm_vectors, original_theta_star)
+    #print(f"best_reward_idx = {real_best_reward}")
     unused_indexes = []
     is_correct = 0
-    print(f"theta = {theta}")
+    #print(f"theta = {theta}")
     d_r = d  # Start with initial dimension
     for r in range(1, int(logd)+1): #step 4
         estimated_rewards = np.zeros(len(curr_indexes))  # Estimated rewards (reset every round)
-        histogram = np.zeros(len(curr_indexes))  # Number of times each arm is pulled (reset every round)
+        histogram = np.zeros(k)  # Number of times each arm is pulled (reset every round)
         # Check if d_r == d_r-1 (dimension stays the same)
         #### RANK\DIMENSION Reduce
         d_r_prev = d_r
@@ -63,7 +65,7 @@ def simulate_vanilla(arms,theta,config,threshold = 1e-5):
             curr_indexes = temp
             transforms.append(update_dict)
         if optimization_method == "danny":
-            pi, solver = g_optimal(curr_arms, curr_indexes)  # setp 13/15
+            pi, solver = g_optimal(curr_arms, curr_indexes,threshold)  # setp 13/15
         elif optimization_method == "FW":
             pi, solver = FW_optimal(curr_arms, curr_indexes) #setp 13/15
         pi[pi < threshold] = 0
@@ -84,19 +86,18 @@ def simulate_vanilla(arms,theta,config,threshold = 1e-5):
                 outer_product = np.outer(curr_arms[:,idx],curr_arms[:,idx])
                 outer_product = T_r_array[idx] * outer_product
                 V_r += outer_product
+                real_index = find_index(idx,transforms)
                 for w in range(T_r_array[idx]):
                     reward = get_reward(curr_theta,curr_arms[:,idx],noise_params) #part of step 19
-                    histogram[idx] += 1
+                    histogram[real_index] += 1
                     send_counter += 1
                     acc += (curr_arms[:,idx] * reward) #the accumulator we use to find theta_hat
             # print(f"V_r = {V_r}")
-            V_r_inverse = invert_matrix(V_r)
+            V_r_inverse = invert_matrix(V_r,regularization=threshold)
             theta_hat = V_r_inverse @ acc   #finishes step 19 of the alg
-            print(f"theta hat = {theta_hat}")
             # print(f"theta hat = {theta_hat}")
             # print(f"curr indexes = {curr_indexes}")
             estimated_rewards = np.asarray([np.inner(curr_arms[:,i],theta_hat) for i in range(len(curr_indexes))]) #step 20
-            print(f"YYestimated rewards = {estimated_rewards}")
             curr_indexes = prune_indexes(estimated_rewards,curr_indexes,math.ceil(d / 2))  #step 21 done
             # print(f"new curr indexes = {curr_indexes}")
             unused_indexes = np.asarray([idx for idx in range(len(curr_indexes)) if idx not in curr_indexes]).flatten()
@@ -107,18 +108,16 @@ def simulate_vanilla(arms,theta,config,threshold = 1e-5):
                 outer_product = np.outer(curr_arms[:, idx], curr_arms[:, idx])
                 outer_product = T_r_array[idx] * outer_product
                 V_r += outer_product
+                real_index = find_index(idx,transforms)
                 for w in range(T_r_array[idx]):
                     reward = get_reward(curr_theta, curr_arms[:, idx], noise_params)
-                    histogram[idx] += 1
+                    histogram[real_index] += 1
                     send_counter += 1
                     acc += (curr_arms[:, idx] * reward)
-
-            V_r_inverse = invert_matrix(V_r)
+            V_r_inverse = invert_matrix(V_r,regularization=threshold)
             theta_hat = V_r_inverse @ acc  # finishes step 19 of the alg
-            print(f"theta hat = {theta_hat}")
             # print(f"curr indexes = {curr_indexes}")
             estimated_rewards = np.asarray([np.inner(curr_arms[:, i], theta_hat) for i in range(len(curr_indexes))])  # step 20
-            print(f"XXestimated rewards = {estimated_rewards}")
             curr_indexes = prune_indexes(estimated_rewards, curr_indexes, math.ceil(d / (2**r)))  # step 21 done
             # print(f"new curr indexes = {curr_indexes}")
             unused_indexes = np.asarray([idx for idx in range(len(curr_indexes)) if idx not in curr_indexes]).flatten()
@@ -132,5 +131,4 @@ def simulate_vanilla(arms,theta,config,threshold = 1e-5):
             if final_winner_idx == real_best_reward:
                 is_correct = 1
             break
-
-    return plot_data, original_theta_star, original_arm_vectors,send_counter,is_correct 
+    return plot_data, original_theta_star, original_arm_vectors,send_counter,is_correct

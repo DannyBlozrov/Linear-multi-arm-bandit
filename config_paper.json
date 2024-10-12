@@ -15,11 +15,11 @@
             "high": 1
         }
     },
-    "k": 20,
+    "k": 10,
     "T": 50,
     "d": 2,
     "seed": 42,
-    "seed_use": "no",
+    "seed_use": "False",
     "output_file": "output_data.json",
     "noise_params":
     {
@@ -28,6 +28,7 @@
         "std_dev": 1
     },
     "verbose": false,
-    "sim_num": 1,
-    "optimization": "danny"
+    "sim_num": 1000,
+    "optimization": "FW",
+    "threshold": 1e-7
 }

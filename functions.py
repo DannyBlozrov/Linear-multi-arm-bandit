@@ -21,7 +21,7 @@ def generate_linear_bandit_instance(k:int, d:int,distribution_params:dict):
     if distribution_params['method'] == 'paper':
         arms = np.zeros((2,k))
         for i in range(1,k-1):
-            phi_i = np.random.normal(0,0.09**2)
+            phi_i = np.random.normal(0,0.09)
             arms[0,i] = np.cos((np.pi / 4) + phi_i)
             arms[1, i] = np.sin((np.pi / 4) + phi_i)
         arms[0,0] = 1
@@ -117,7 +117,7 @@ def best_reward_vec(arms, theta):
     :return:
     """
     inner_products = np.dot(theta, arms)
-    print(f"real rewards = {inner_products}")
+    # print(f"real rewards = {inner_products}")
     max_index = np.argmax(inner_products)
     return max_index
 
@@ -169,7 +169,7 @@ def g(pi, arms, indexes):
     return np.max(all_norms)
 
 
-def g_optimal(arm_matrix: np.ndarray, indexes: np.ndarray, max_support=None, tol=1e-7):
+def g_optimal(arm_matrix: np.ndarray, indexes: np.ndarray, threshold, max_support=None):
     """
     :param arm_matrix: a matrix of current arm vectors
     :param indexes: indices of arms
@@ -193,7 +193,7 @@ def g_optimal(arm_matrix: np.ndarray, indexes: np.ndarray, max_support=None, tol
     pi_thresholded = np.zeros_like(pi)
     pi_thresholded[support_indices] = pi[support_indices]
     pi_thresholded /= np.sum(pi_thresholded)
-    active_indexes = [i for i in support_indices if pi_thresholded[i] > tol]
+    active_indexes = [i for i in support_indices if pi_thresholded[i] > threshold]
     active_bounds = [(0, 1) if i in active_indexes else (0, 0) for i in range(k)]
     res_final = optimize.minimize(fun=f, bounds=active_bounds, constraints=constraints_dict, x0=pi_thresholded)
     pi_sparse = res_final['x']
@@ -251,23 +251,22 @@ def calculate_kl_divergence_with_uniform(plot_data: list):
     :return: The KL divergence between the cumulative histogram and a uniform distribution of the same size.
     """
     # Calculate cumulative histogram
-    return 1
-    # k = len(plot_data[0]['indexes'])  # Number of arms
-    # cumulative_histogram = np.zeros((k))
-    #
-    # for stage in plot_data:
-    #     cumulative_histogram += stage['histogram']
-    #
-    # # Normalize cumulative histogram to create a probability distribution
-    # cumulative_histogram_prob = cumulative_histogram / np.sum(cumulative_histogram)
-    #
-    # # Create a uniform distribution of the same size
-    # uniform_distribution = np.ones(k) / k
-    #
-    # # Calculate KL divergence (using scipy's entropy function for KL divergence)
-    # kl_divergence = entropy(cumulative_histogram_prob, uniform_distribution)
+    k = len(plot_data[0]['indexes'])  # Number of arms
+    cumulative_histogram = np.zeros((k))
 
-    #return kl_divergence
+    for stage in plot_data:
+        cumulative_histogram += stage['histogram']
+
+    # Normalize cumulative histogram to create a probability distribution
+    cumulative_histogram_prob = cumulative_histogram / np.sum(cumulative_histogram)
+
+    # Create a uniform distribution of the same size
+    uniform_distribution = np.ones(k) / k
+
+    # Calculate KL divergence (using scipy's entropy function for KL divergence)
+    kl_divergence = entropy(cumulative_histogram_prob, uniform_distribution)
+
+    return kl_divergence
 
 
 def find_index(index, transforms):
