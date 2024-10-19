@@ -10,11 +10,12 @@ def load_config(file_path):
         config = json.load(file)
     return config
 
-def generate_linear_bandit_instance(k:int, d:int,distribution_params:dict):
+def generate_linear_bandit_instance(k:int, d:int,distribution_params:dict,sorted:str):
     """
     :param k: number of samples of a_i..a_k
     :param d: the dimension of each sample
     :param distribution_params:dict : a dict with keys {method,mean,std_dev,low,high} where method, representing 'uniform' , 'normal' or 'paper'
+    :param sorted:str - a string with "True\\False" that indicate that the first index will be the highest reward
     :return:a matrix of arm vectors of size dxk, theta star of size dx1
     """
     arms,theta = None,None
@@ -29,6 +30,7 @@ def generate_linear_bandit_instance(k:int, d:int,distribution_params:dict):
         arms[0,k-1] = np.cos((3*np.pi / 4))
         arms[1, k-1] = np.sin((3*np.pi / 4))
         theta = np.asarray(([1,0])).T
+
 
     if distribution_params['method'] == 'normal':
         arms = np.random.normal(0,1,size = (d,k))
@@ -55,6 +57,13 @@ def generate_linear_bandit_instance(k:int, d:int,distribution_params:dict):
             theta_low = theta_params['low']
             theta_high = theta_params['high']
             theta = theta_low + (theta_high - theta_low) * np.random.rand(d)
+
+    if sorted == "True":
+        inner_products = np.dot(theta, arms)
+        sorted_indices = np.argsort(inner_products)[::-1]
+        sorted_arms = arms[:, sorted_indices]
+        arms = sorted_arms #make sure that the first index will be the highest real reward
+
     return arms,theta
 
 
@@ -268,32 +277,10 @@ def calculate_kl_divergence_with_uniform(plot_data: list):
 
     return kl_divergence
 
+def export_results(file_path,results):
+    with open(file_path,"r") as f:
+        f.write(results)
 
-def find_index(index, transforms):
-    """
-    Find the original index that maps to the given final index through a series of transformations.
-
-    :param index: The final index to trace back from.
-    :param transforms: A list where each element is a dictionary with keys 'matrix' and 'mappings'.
-                       'mappings' is a dictionary that maps old indexes to new indexes.
-    :return: The original index that maps to the given final index.
-    """
-    # Start from the last transformation and trace back
-    current_index = index
-    for transform in reversed(transforms):
-        # Get the current mapping
-        mapping = transform['mappings']
-        # Find the old index that maps to the current index
-        for old_index, new_index in mapping.items():
-            if new_index == current_index:
-                current_index = old_index
-                break
-        else:
-            # If we didn't find a mapping, the index cannot be traced back further
-            return None
-
-    # The final current_index will be the original index that maps to the given index
-    return current_index
 
 
 

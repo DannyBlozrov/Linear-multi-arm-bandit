@@ -6,7 +6,7 @@ import functions
 import numpy as np
 import scipy
 
-def FW_optimal(arms: np.ndarray, indexes: np.ndarray, max_support=None, tol=1e-7):
+def FW_optimal(arms: np.ndarray, indexes: np.ndarray, threshold,max_support=None):
     """
     :param arms: a matrix of current arm vectors
     :param indexes: indices of arms
@@ -108,7 +108,7 @@ def A_inv(pi: np.ndarray, arms: np.ndarray, indexes: np.ndarray):
     A = np.zeros((d, d))
     for idx in indexes:
         A += pi[idx] * np.outer(arms[:, idx], arms[:, idx])
-    A_inv = np.linalg.inv(A)
+    A_inv = functions.invert_matrix(A)
     return A_inv
 
 

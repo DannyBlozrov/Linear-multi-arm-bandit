@@ -3,7 +3,7 @@
     {
         "method": "uniform",
         "low": 0,
-        "high": 3,
+        "high": 1,
         "mean": 0,
         "std_dev": 1,
         "theta":
@@ -15,17 +15,18 @@
             "high": 1
         }
     },
-    "k": 50,
-    "T": 400,
+    "k": 25,
+    "T": 80,
     "d": 5,
+    "sorted": "True",
     "seed": 42,
     "seed_use": "False",
-    "output_file": "graphs.png",
+    "output_file": "graphs.txt",
     "noise_params":
     {
         "distribution": "normal",
         "mean": 0,
-        "std_dev": 1
+        "std_dev": 0.1
     },
     "verbose": false,
     "sim_num": 100,

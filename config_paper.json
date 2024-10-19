@@ -15,9 +15,10 @@
             "high": 1
         }
     },
-    "k": 10,
+    "k": 50,
     "T": 50,
     "d": 2,
+    "sorted": "False",
     "seed": 42,
     "seed_use": "False",
     "output_file": "output_data.json",
@@ -28,7 +29,7 @@
         "std_dev": 1
     },
     "verbose": false,
-    "sim_num": 1000,
+    "sim_num": 200,
     "optimization": "FW",
     "threshold": 1e-7
 }
