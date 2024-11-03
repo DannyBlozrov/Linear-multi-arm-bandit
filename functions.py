@@ -130,7 +130,7 @@ def best_reward_vec(arms, theta):
     max_index = np.argmax(inner_products)
     return max_index
 
-def make_random_combinations_matrix(idx,rows,cols,arms,unused_indexes):
+def make_random_combinations_matrix(idx,rows,cols,unused_indexes):
     """
     :param idx: the index of current indexes we want to create a matrix for
     :param rows: how mayn rows will this matrix have

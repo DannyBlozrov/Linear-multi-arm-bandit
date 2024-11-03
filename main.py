@@ -4,68 +4,104 @@ from od_linbai import od_linbai
 from mod_linbai import mod_linbai
 from multiprocessing import Pool
 from functions import *
+import importlib
 import matplotlib.pyplot as plt
 
-def run_simulation(config):
+
+def run_simulation(config, algorithm_name):
     k = config.get('k')
     d = config.get('d')
     sorted = config.get('sorted')
     seed = config.get('seed')
     seed_use = config.get('seed_use')
+
     if seed_use == "True":
         np.random.seed(seed)
     else:
         np.random.seed()
+
     distribution_params = config.get('distribution_params')
-    od_linbai_correct_counter = 0
-    od_linbai_pulls = 0
-    od_linbai_KLdiv = 0
+    correct_counter = 0
+    pulls = 0
+    KLdiv = 0
 
-    arms, theta = generate_linear_bandit_instance(k, d, distribution_params,sorted = sorted)
+    # Dynamically import the module containing the algorithm
+    module = importlib.import_module(algorithm_name)
+    algorithm_function = getattr(module, algorithm_name)
 
-    # Run the vanilla simulation
-    plot_data_od_linbai, original_theta_star, original_arm_vectors, total_appearances_od_linbai, is_correct_od_linbai= od_linbai(
-        arms, theta, config)
-    od_linbai_correct_counter += is_correct_od_linbai
-    od_linbai_pulls += total_appearances_od_linbai
-    od_linbai_KLdiv += calculate_kl_divergence_with_uniform(plot_data_od_linbai)
+    arms, theta = generate_linear_bandit_instance(k, d, distribution_params, sorted=sorted)
+
+    plot_data, original_theta_star, original_arm_vectors, total_appearances, is_correct = algorithm_function(
+        arms, theta, config
+    )
+
+    correct_counter += is_correct
+    pulls += total_appearances
+    KLdiv += calculate_kl_divergence_with_uniform(plot_data)
 
     return {
-        'plot_data_od_linbai':plot_data_od_linbai,
-        'od_linbai_correct_counter': od_linbai_correct_counter,
-        'od_linbai_pulls': od_linbai_pulls,
-        'od_linbai_KLdiv': od_linbai_KLdiv,
+        f'plot_data_{algorithm_name}': plot_data,
+        f'{algorithm_name}_correct_counter': correct_counter,
+        f'{algorithm_name}_pulls': pulls,
+        f'{algorithm_name}_KLdiv': KLdiv,
     }
 
 
 if __name__ == "__main__":
     config = load_config('config_paper.json')
     num_simulations = config.get('sim_num')
-    error_probabilities = []
-    k_values = list([k for k in range(25,50,3)])
+    algorithms = config.get('algorithms')
+    error_probabilities_dict = {alg: [] for alg in algorithms}
+    kl_divergence_dict = {alg: [] for alg in algorithms}
+
+    k_values = list(range(25, 50, 3))
     for k in k_values:
-        config['k']=k
-        successes_od_linbai = 0
-        count_od_linbai = 0
-        KLdiv_od_linbai = 0
-        for i in range(num_simulations):  # 300 simulations for each value of k
-            sim_results = run_simulation(config)
-            successes_od_linbai += sim_results['od_linbai_correct_counter']
-            count_od_linbai += sim_results['od_linbai_pulls']
-            KLdiv_od_linbai += sim_results['od_linbai_KLdiv']
-            # if i == 1 :
-            #     make_plots(sim_results['plot_data_vanilla'])
-        error_probability_vanilla = 1 - (successes_od_linbai / num_simulations)
-        KLdiv_vanilla = KLdiv_od_linbai/num_simulations
-        count_vanilla = count_od_linbai / num_simulations
-        output_file_path = config['output_file']
-        results = {'error_prob_vanilla':error_probability_vanilla,'armpull_vanilla':count_vanilla,'KLdiv_vanilla':KLdiv_vanilla}
-        print(f" for k = {k} and T=50: {results}")
-        error_probabilities.append(error_probability_vanilla)
-    plt.plot(k_values, error_probabilities, marker='o')
+        config['k'] = k
+        results_per_algorithm = {}
+
+        for algorithm in algorithms:
+            successes = 0
+            count = 0
+            KLdiv = 0
+
+            for _ in range(num_simulations):
+                sim_results = run_simulation(config, algorithm)
+                successes += sim_results[f'{algorithm}_correct_counter']
+                count += sim_results[f'{algorithm}_pulls']
+                KLdiv += sim_results[f'{algorithm}_KLdiv']
+
+            error_probability = 1 - (successes / num_simulations)
+            avg_KLdiv = KLdiv / num_simulations
+            avg_count = count / num_simulations
+            results_per_algorithm[algorithm] = {
+                'error_prob': error_probability,
+                'avg_armpull': avg_count,
+                'avg_KLdiv': avg_KLdiv
+            }
+            error_probabilities_dict[algorithm].append(error_probability)
+            kl_divergence_dict[algorithm].append(avg_KLdiv)
+
+            print(f" for k = {k} and T=50 using {algorithm}: {results_per_algorithm[algorithm]}")
+
+    # plot error prob
+    for algorithm in algorithms:
+        plt.plot(k_values, error_probabilities_dict[algorithm], marker='o', label=f'{algorithm} Error Probability')
+
     plt.xlabel(r'$K$ values')
     plt.ylabel('Error Probability')
     plt.yticks(np.arange(0, 1.1, 0.1))
-    plt.title('Error Probability using OD-LINBAI vs k for $T=50$')
+    plt.title('Error Probability for Different Algorithms vs k for $T=50$')
+    plt.legend(loc='upper right')
+    plt.grid(True)
+    plt.show()
+
+    #plot KLs
+    for algorithm in algorithms:
+        plt.plot(k_values, kl_divergence_dict[algorithm], marker='o', label=f'{algorithm} Average KL Divergence')
+
+    plt.xlabel(r'$K$ values')
+    plt.ylabel('Average KL Divergence')
+    plt.title('Average KL Divergence for Different Algorithms vs k for $T=50$')
+    plt.legend(loc='center right')
     plt.grid(True)
     plt.show()

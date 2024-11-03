@@ -31,5 +31,6 @@
     "verbose": false,
     "sim_num": 200,
     "optimization": "FW",
-    "threshold": 1e-7
+    "threshold": 1e-7,
+    "algorithms": ["od_linbai","mod_linbai"]
 }
