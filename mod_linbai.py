@@ -20,6 +20,7 @@ def mod_linbai(arms, theta, config):
     k = arms.shape[1]
     d = arms.shape[0]
     T = config.get('T')
+    verbose:bool = config.get('verbose').lower() == 'true'
     optimization_method = config.get('optimization')  # either "danny" or "FW"
     threshold = config.get('threshold')  # tolerance for matrix inversion regularization and for error in g optimal
     original_arm_vectors = arms
@@ -32,15 +33,14 @@ def mod_linbai(arms, theta, config):
     curr_arms = original_arm_vectors
     curr_indexes = np.arange(k)
     logd = int(np.ceil(math.log2(d)))
-    m = (T - np.min([k, (d * (d + 1) / 2)]) - sum([d / (2 ** r) for r in range(1, logd)])) / logd
+    m = calculate_m(k,d,T)
     real_best_reward = best_reward_vec(original_arm_vectors, original_theta_star)
-
     is_correct = 0
-    d_r = d  # Start with initial dimension
+    d_r = d  # Start with initial dimension\
     for r in range(1, int(logd) + 1):  # step 4
+        unused_indexes = []
         estimated_rewards = np.zeros(k)  # Estimated rewards (reset every round)
         histogram = np.zeros(k)  # Number of times each arm is pulled (reset every round)
-        unused_indexes = []
         #### RANK\DIMENSION Reduce
         d_r_prev = d_r
         d_r = np.linalg.matrix_rank(curr_arms[:, curr_indexes])
@@ -63,59 +63,35 @@ def mod_linbai(arms, theta, config):
         # Calculate T_r for each arm
         for i in curr_indexes:
             T_r_array[i] = int(np.ceil(pi[i] * m))  # step 17
-        for idx in curr_indexes:
+        for idx in range(len(T_r_array)):
             if T_r_array[idx] == 0:
                 unused_indexes.append(idx)
         Tr = np.sum(T_r_array)
         V_r = np.zeros((d_r, d_r))
         acc = np.zeros(d_r)
-        if r == 1:
-            # doing step 19
-            for idx in curr_indexes:
-                if T_r_array[idx] != 0:
-                    num_rows = T_r_array[idx]   #number of linear combinations that include index idx with random indexes that have TR 0
-                    send_counter += num_rows
-                    P = make_random_combinations_matrix(idx, num_rows, k,
-                                                        unused_indexes)  # create the matrix P with T_r[i] rows and k columns
-                    sums_columns = np.sum(P, axis=0)
-                    for j in range(k):
-                        histogram[j] += sums_columns[j]
-                    for row in range(num_rows):
-                        curr_vector = make_linear_combination(curr_arms,P[row])
-                        outer_product = np.outer(curr_vector,curr_vector)
-                        curr_reward = get_reward(curr_theta,curr_vector,noise_params=noise_params)
-                        acc += (curr_vector * curr_reward)
-                        V_r += outer_product
-            V_r_inverse = invert_matrix(V_r, regularization=threshold)
-            theta_hat = V_r_inverse @ acc  # finishes step 19 of the alg
-            for idx in curr_indexes:
-                estimated_rewards[idx] = np.inner(curr_arms[:, idx], theta_hat)  # step 20
-            curr_indexes = prune_indexes(estimated_rewards, curr_indexes, math.ceil(d / 2))  # step 21 done
-
-        else:
-            # doing step 19
-            for idx in curr_indexes:
-                if T_r_array[idx] != 0:
-                    num_rows = T_r_array[
-                        idx]  # number of linear combinations that include index idx with random indexes that have TR 0
-                    send_counter += num_rows
-                    P = make_random_combinations_matrix(idx, num_rows, k,
-                                                        unused_indexes)  # create the matrix P with T_r[i] rows and k columns
-                    sums_columns = np.sum(P, axis=0)
-                    for j in range(k):
-                        histogram[j] += sums_columns[j]
-                    for row in range(num_rows):
-                        curr_vector = make_linear_combination(curr_arms, P[row])
-                        outer_product = np.outer(curr_vector, curr_vector)
-                        curr_reward = get_reward(curr_theta, curr_vector, noise_params=noise_params)
-                        acc += (curr_vector * curr_reward)
-                        V_r += outer_product
-            V_r_inverse = invert_matrix(V_r, regularization=threshold)
-            theta_hat = V_r_inverse @ acc  # finishes step 19 of the alg
-            for i in curr_indexes:
-                estimated_rewards[i] = np.inner(curr_arms[:, i], theta_hat)  # step 20
-            curr_indexes = prune_indexes(estimated_rewards, curr_indexes, math.ceil(d / (2 ** r)))  # step 21 done
-            unused_indexes = np.asarray([idx for idx in range(len(curr_indexes)) if idx not in curr_indexes]).flatten()
+        if verbose:
+            print(f"T_r array = {T_r_array}")
+            print(f"unused = {unused_indexes}")
+        for idx in curr_indexes:
+            if T_r_array[idx] != 0:
+                num_rows = T_r_array[idx]   #number of linear combinations that include index idx with random indexes that have TR 0
+                send_counter += num_rows
+                P = make_random_combinations_matrix(idx, num_rows, k,
+                                                    unused_indexes)  # create the matrix P with T_r[i] rows and k columns
+                sums_columns = np.sum(P, axis=0)
+                for j in range(k):
+                    histogram[j] += sums_columns[j]
+                for row in range(num_rows):
+                    curr_vector = make_linear_combination(curr_arms,P[row])
+                    outer_product = np.outer(curr_vector,curr_vector)
+                    curr_reward = get_reward(curr_theta,curr_vector,noise_params=noise_params)
+                    acc += (curr_vector * curr_reward)
+                    V_r += outer_product
+        V_r_inverse = invert_matrix(V_r, regularization=threshold)
+        theta_hat = V_r_inverse @ acc  # finishes step 19 of the alg
+        for idx in curr_indexes:
+            estimated_rewards[idx] = np.inner(curr_arms[:, idx], theta_hat)  # step 20
+        curr_indexes = prune_indexes(estimated_rewards, curr_indexes, math.ceil(d / (2**r)))  # step 21 done
         plot_data.append({"r": r, "rewards": estimated_rewards, "indexes": curr_indexes, "histogram": histogram})
         if len(curr_indexes) == 1:
             final_winner = curr_indexes[0]

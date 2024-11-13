@@ -6,6 +6,7 @@ from multiprocessing import Pool
 from functions import *
 import importlib
 import matplotlib.pyplot as plt
+import json
 
 
 def run_simulation(config, algorithm_name):
@@ -54,7 +55,7 @@ if __name__ == "__main__":
     error_probabilities_dict = {alg: [] for alg in algorithms}
     kl_divergence_dict = {alg: [] for alg in algorithms}
 
-    k_values = list(range(25, 50, 3))
+    k_values = list(range(10,50, 3))
     for k in k_values:
         config['k'] = k
         results_per_algorithm = {}
@@ -85,23 +86,21 @@ if __name__ == "__main__":
 
     # plot error prob
     for algorithm in algorithms:
-        plt.plot(k_values, error_probabilities_dict[algorithm], marker='o', label=f'{algorithm} Error Probability')
+        plt.plot(k_values, error_probabilities_dict[algorithm], marker='o', label=f'{algorithm}')
 
     plt.xlabel(r'$K$ values')
     plt.ylabel('Error Probability')
     plt.yticks(np.arange(0, 1.1, 0.1))
-    plt.title('Error Probability for Different Algorithms vs k for $T=50$')
     plt.legend(loc='upper right')
     plt.grid(True)
     plt.show()
 
     #plot KLs
     for algorithm in algorithms:
-        plt.plot(k_values, kl_divergence_dict[algorithm], marker='o', label=f'{algorithm} Average KL Divergence')
+        plt.plot(k_values, kl_divergence_dict[algorithm], marker='o', label=f'{algorithm}')
 
     plt.xlabel(r'$K$ values')
     plt.ylabel('Average KL Divergence')
-    plt.title('Average KL Divergence for Different Algorithms vs k for $T=50$')
     plt.legend(loc='center right')
     plt.grid(True)
     plt.show()

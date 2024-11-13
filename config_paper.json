@@ -28,8 +28,8 @@
         "mean": 0,
         "std_dev": 1
     },
-    "verbose": false,
-    "sim_num": 200,
+    "verbose": "False",
+    "sim_num": 100,
     "optimization": "FW",
     "threshold": 1e-7,
     "algorithms": ["od_linbai","mod_linbai"]

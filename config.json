@@ -16,8 +16,8 @@
         }
     },
     "k": 25,
-    "T": 80,
-    "d": 5,
+    "T": 50,
+    "d": 8,
     "sorted": "True",
     "seed": 42,
     "seed_use": "False",
@@ -26,9 +26,9 @@
     {
         "distribution": "normal",
         "mean": 0,
-        "std_dev": 0.1
+        "std_dev": 1
     },
-    "verbose": false,
+    "verbose": "False",
     "sim_num": 100,
     "optimization": "FW",
     "threshold": 1e-7,

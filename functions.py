@@ -110,12 +110,25 @@ def invert_matrix(M,regularization = 1e-8):
         res = np.linalg.inv(M)
         return res
     except np.linalg.LinAlgError:
+        raise ZeroDivisionError
         n = M.shape[0]
         regularization_mat = regularization * np.eye(n)
         M = M + regularization_mat
         return invert_matrix(M)
 
+def calculate_m (k,d,T):
+    """
 
+    :param k: number of arms
+    :param d: original dimension of each arm
+    :param T: time budget
+    :return: m, the constant in the paper
+    """
+    min_term = min(k, (d * (d + 1)) / 2)
+    log_d_ceil = np.ceil(np.log2(d))
+    sum_term = sum(np.ceil(d / (2 ** r)) for r in range(1, int(log_d_ceil)))
+    result = (T - min_term - sum_term) / log_d_ceil
+    return result
 
 
 def best_reward_vec(arms, theta):
@@ -139,15 +152,16 @@ def make_random_combinations_matrix(idx,rows,cols,unused_indexes):
     :param unused_indexes: which indexes will be in the binary vectors
     :return:a matrix of size (rows,cols) where every row has a binary vector of (1,0) that are created randomly
     """
-    # print(f"rows = {rows},cols = {cols}")
     P = np.zeros((rows,cols))
     for i in range(rows):
         P[i][idx] = 1
-        sample_size = np.random.randint(0,len(unused_indexes)) #generate a number of indexes that will be 1
-        chosen_indexes_vector = np.random.choice(unused_indexes,size=sample_size,replace=False) #returns a vector like [1,2,6,12] from the unused indexes
-        P[i][chosen_indexes_vector] = 1
+        if(len(unused_indexes) != 0):
+            sample_size = np.random.randint(0,len(unused_indexes)) #generate a number of indexes that will be 1
+            chosen_indexes_vector = np.random.choice(unused_indexes, size=sample_size,
+                                                     replace=False)  # returns a vector like [1,2,6,12] from the unused indexes
+            P[i][chosen_indexes_vector] = 1
 
-    # print(f"P = {P}")
+
     return P
 
 def make_linear_combination(arms,index_vector):
@@ -271,7 +285,6 @@ def calculate_kl_divergence_with_uniform(plot_data: list):
 
     # Create a uniform distribution of the same size
     uniform_distribution = np.ones(k) / k
-
     # Calculate KL divergence (using scipy's entropy function for KL divergence)
     kl_divergence = entropy(cumulative_histogram_prob, uniform_distribution)
 

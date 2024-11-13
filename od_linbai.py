@@ -28,9 +28,8 @@ def od_linbai(arms,theta,config):
     curr_arms = original_arm_vectors
     curr_indexes = np.arange(k)
     logd = int(np.ceil(math.log2(d)))
-    m = (T - np.min([k, (d * (d + 1) / 2)]) - sum([d / (2 ** r) for r in range(1, logd)])) / logd
+    m = calculate_m(k,d,T)
     real_best_reward = best_reward_vec(original_arm_vectors, original_theta_star)
-    unused_indexes = []
     is_correct = 0
     d_r = d  # Start with initial dimension
     for r in range(1, int(logd)+1): #step 4
@@ -55,15 +54,16 @@ def od_linbai(arms,theta,config):
         pi[pi < threshold] = 0
         pi = pi / np.sum(pi)  # Normalize to sum to 1
         T_r_array = np.zeros(k,dtype=int)
+
         # Calculate T_r for each arm
         for i in curr_indexes:
             T_r_array[i] = int(np.ceil(pi[i] * m)) #step 17
         Tr = np.sum(T_r_array)
         V_r = np.zeros((d_r, d_r))
         acc = np.zeros(d_r)
-        if r == 1:
-            #doing step 19
-            for idx in curr_indexes:
+        #doing step 19
+        for idx in curr_indexes:
+            if T_r_array[idx] != 0:
                 outer_product = np.outer(curr_arms[:,idx],curr_arms[:,idx])
                 outer_product = T_r_array[idx] * outer_product
                 V_r += outer_product
@@ -72,29 +72,11 @@ def od_linbai(arms,theta,config):
                     histogram[idx] += 1
                     send_counter += 1
                     acc += (curr_arms[:,idx] * reward) #the accumulator we use to find theta_hat
-            V_r_inverse = invert_matrix(V_r,regularization=threshold)
-            theta_hat = V_r_inverse @ acc   #finishes step 19 of the alg
-            for i in curr_indexes:
-                estimated_rewards[i] = np.inner(curr_arms[:,i],theta_hat)   #step 20
-            curr_indexes = prune_indexes(estimated_rewards,curr_indexes,math.ceil(d / 2))  #step 21 done
-            unused_indexes = np.asarray([idx for idx in range(len(curr_indexes)) if idx not in curr_indexes]).flatten()
-        else:
-            # doing step 19
-            for idx in curr_indexes:
-                outer_product = np.outer(curr_arms[:, idx], curr_arms[:, idx])
-                outer_product = T_r_array[idx] * outer_product
-                V_r += outer_product
-                for w in range(T_r_array[idx]):
-                    reward = get_reward(curr_theta, curr_arms[:, idx], noise_params)
-                    histogram[idx] += 1
-                    send_counter += 1
-                    acc += (curr_arms[:, idx] * reward)
-            V_r_inverse = invert_matrix(V_r,regularization=threshold)
-            theta_hat = V_r_inverse @ acc  # finishes step 19 of the alg
-            for i in curr_indexes:
-                estimated_rewards[i] = np.inner(curr_arms[:, i], theta_hat) #step 20
-            curr_indexes = prune_indexes(estimated_rewards, curr_indexes, math.ceil(d / (2**r)))  # step 21 done
-            unused_indexes = np.asarray([idx for idx in range(len(curr_indexes)) if idx not in curr_indexes]).flatten()
+        V_r_inverse = invert_matrix(V_r,regularization=threshold)
+        theta_hat = V_r_inverse @ acc   #finishes step 19 of the alg
+        for i in curr_indexes:
+            estimated_rewards[i] = np.inner(curr_arms[:,i],theta_hat)   #step 20
+        curr_indexes = prune_indexes(estimated_rewards,curr_indexes,math.ceil(d / (2**r)))  #step 21 done
         plot_data.append({"r": r, "rewards": estimated_rewards, "indexes": curr_indexes, "histogram": histogram})
         if len(curr_indexes) == 1:
             final_winner = curr_indexes[0]

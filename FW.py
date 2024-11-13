@@ -1,8 +1,6 @@
 import numpy as np
 import scipy
 import functions
-
-
 import numpy as np
 import scipy
 
@@ -12,7 +10,7 @@ def FW_optimal(arms: np.ndarray, indexes: np.ndarray, threshold,max_support=None
     :param indexes: indices of arms
     :param max_support: maximum number of non-zero elements allowed in pi
     :param tol: tolerance for small values to be considered as zero
-    :return: a sparse vector of probabilities (0,1) for each arm, using optimization
+    :return: a sparse vector of probabilities (0,1) for each arm, using optimization of FRANK WOLFE
     """
     d, k = np.shape(arms)
     max_support = max_support or (d * (d + 1)) // 2
