@@ -1,7 +1,6 @@
 import numpy as np
 import scipy
 import functions
-import numpy as np
 import scipy
 
 def FW_optimal(arms: np.ndarray, indexes: np.ndarray, threshold,max_support=None):

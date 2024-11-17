@@ -32,5 +32,14 @@
     "sim_num": 100,
     "optimization": "FW",
     "threshold": 1e-7,
-    "algorithms": ["od_linbai","mod_linbai"]
+    "algorithms": ["od_linbai","mod_linbai"],
+    "k_values_range": {
+    "start": 10,
+    "stop": 50,
+    "step": 3},
+    "T_values_range": {
+    "start": 10,
+    "stop": 50,
+    "step": 3}
+
 }

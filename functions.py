@@ -290,10 +290,6 @@ def calculate_kl_divergence_with_uniform(plot_data: list):
 
     return kl_divergence
 
-def export_results(file_path,results):
-    with open(file_path,"r") as f:
-        f.write(results)
-
 
 
 

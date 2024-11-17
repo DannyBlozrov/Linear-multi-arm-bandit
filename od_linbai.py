@@ -17,6 +17,7 @@ def od_linbai(arms,theta,config):
     k = arms.shape[1]
     d = arms.shape[0]
     T = config.get('T')
+    verbose: bool = config.get('verbose').lower() == 'true'
     optimization_method = config.get('optimization')    #either "danny" or "FW"
     threshold = config.get('threshold') #tolerance for matrix inversion regularization and for error in g optimal
     original_arm_vectors = arms

@@ -1,0 +1,25 @@
+{
+  "plot_settings": {
+    "xlabel": "$K$ values",
+    "ylabel_error_prob": "Error Probability",
+    "ylabel_kl_div": "Average KL Divergence",
+    "yticks": [0, 1.1, 0.1],
+    "legend_location_error_prob": "upper right",
+    "legend_location_kl_div": "center right",
+    "grid": true,
+    "line_style": "-",
+    "marker": "o",
+    "plot_title_error_prob": "",
+    "plot_title_kl_div": "",
+    "algorithms": [
+      {
+        "name": "od_linbai",
+        "custom_label": "OD LinBai"
+      },
+      {
+        "name": "mod_linbai",
+        "custom_label": "Mod LinBai"
+      }
+    ]
+  }
+}
