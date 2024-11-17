@@ -43,19 +43,17 @@ def run_simulation(config, algorithm_name):
     plot_data, original_theta_star, original_arm_vectors, total_appearances, is_correct = algorithm_function(
         arms, theta, config
     )
-    # if algorithm_name == "od_linbai" and k > 20:
-    #
+    # if  algorithm_name == "mod_linbai" and k > 20:
     #     data = plot_data[-1]['histogram']
-    #     print(f"k = {k}")
-    #     plt.hist(data, bins=k, alpha=0.7, edgecolor='black')
-    #
-    #     # Add titles and labels
-    #     plt.xticks(range(k))
+    #     r = plot_data[-1]['r']
+    #     print(f"k={k}")
+    #     print(f"data = {data}")
+    #     indices = range(k)
+    #     plt.bar(indices, data, color='blue', edgecolor='black', alpha=0.7)
+    #     plt.xticks(indices)
     #     plt.title('')
     #     plt.xlabel('Arm Index')
     #     plt.ylabel('Frequency')
-    #
-    #     # Show the plot
     #     plt.show()
     correct_counter += is_correct
     pulls += total_appearances
